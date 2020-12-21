@@ -1,0 +1,46 @@
+{
+  "name": "scrypt_boilerplate",
+  "version": "0.2.0",
+  "description": "sCrypt project boilerplate",
+  "main": "",
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "scripts": {
+    "test": "mocha -r ts-node/register tests/**/*scrypttest.*  --reporter spec --timeout 600000",
+    "single-test": "mocha -r ts-node/register --reporter spec --timeout 120000",
+    "testnet": "node tests/testnet/demo.js",
+    "watch": "node watcher.js",
+    "gen-desc": "node watcher.js --gen-desc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/scrypt-sv/boilerplate.git"
+  },
+  "keywords": [
+    "sCrypt",
+    "testing",
+    "Smart Contract",
+    "bitcoin",
+    "bitcoin-sv"
+  ],
+  "author": "sCrypt Inc",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.19.2",
+    "glob": "^7.1.6",
+    "minimist": "^1.2.5",
+    "scryptlib": "0.2.25",
+    "watch": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.8",
+    "@types/mocha": "^7.0.1",
+    "@types/node": "^13.7.6",
+    "chai": "^4.2.0",
+    "mocha": "^7.0.1",
+    "ts-node": "^8.6.2",
+    "tsconfig-paths": "^3.9.0",
+    "typescript": "^3.7.5"
+  }
+}

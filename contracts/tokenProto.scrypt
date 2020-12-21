@@ -1,0 +1,114 @@
+import "util.scrypt";
+
+contract TokenProto {
+
+    // <type specific data> + <proto header>
+    // <proto header> = <type(4 bytes)> + <'oraclesv'(8 bytes)>
+    //<token type specific data> = <token_name (10 bytes)> <is_genesis(1 byte)> <address(20 bytes)> + <token value(8 bytes)> + <tokenid(20 bytes)>
+    static int TOKEN_ID_LEN = 20;
+    static int TOKEN_VALUE_LEN = 8;
+    static int TOKEN_ADDRESS_LEN = 20;
+    static int GENESIS_FLAG_LEN = 1;
+    static int TOKEN_NAME_LEN = 10;
+    static int TYPE_LEN = 4;
+    static int FLAG_LEN = 8;
+
+    static int TYPE_OFFSET = TokenProto.TYPE_LEN + TokenProto.FLAG_LEN;
+    static int TOKEN_ID_OFFSET = TokenProto.TOKEN_ID_LEN + TokenProto.TYPE_OFFSET;
+    static int TOKEN_VALUE_OFFSET = TokenProto.TOKEN_ID_OFFSET + TokenProto.TOKEN_VALUE_LEN;
+    static int TOKEN_ADDRESS_OFFSET = TokenProto.TOKEN_VALUE_OFFSET + TokenProto.TOKEN_ADDRESS_LEN;
+    static int GENESIS_FLAG_OFFSET = TokenProto.TOKEN_ADDRESS_OFFSET + TokenProto.GENESIS_FLAG_LEN;
+    static int TOKEN_NAME_OFFSET = TokenProto.GENESIS_FLAG_OFFSET + TokenProto.TOKEN_NAME_LEN ;
+    static int DATA_LEN = TokenProto.TOKEN_NAME_OFFSET;
+
+    static function getProtoData(bytes script, int slen): bytes {
+        return script[slen - TokenProto.DATA_LEN: slen];
+    }
+
+    static function getTokenAddress(bytes script, int slen): bytes {
+        return script[slen - TokenProto.TOKEN_ADDRESS_OFFSET: slen - TokenProto.TOKEN_ADDRESS_OFFSET + TokenProto.TOKEN_ADDRESS_LEN];
+    }
+
+    static function getTokenValue(bytes script, int slen): int {
+        return Util.fromLEUnsigned(script[slen - TokenProto.TOKEN_VALUE_OFFSET: slen - TokenProto.TOKEN_VALUE_OFFSET + TokenProto.TOKEN_VALUE_LEN]);
+    }
+
+    static function getNewTokenScript(bytes script, int slen, bytes address, int tokenValue): bytes {
+        return script[0: slen - TokenProto.TOKEN_ADDRESS_OFFSET] + address + num2bin(tokenValue, 8) + script[slen - TokenProto.TOKEN_ID_OFFSET: slen];
+    }
+
+    static function getTokenID(bytes script, int slen): bytes {
+        return script[slen - TokenProto.TOKEN_ID_OFFSET: slen - TokenProto.TOKEN_ID_OFFSET + TokenProto.TOKEN_ID_LEN];
+    }
+
+    static function readOutputScript(bytes tx, int outputIndex): bytes {
+        // first 4 bytes version
+        // 1 byte input num, only support max 2
+        int pos = 4;
+        int ninputs = Util.fromLEUnsigned(tx[pos: pos + 1]);
+        pos = pos + 1;
+        int i = 0;
+        int scriptLen = 0;
+        int varLen = 0;
+        bytes res = b'';
+        // max support 3 input
+        // input
+        require(ninputs <= 2);
+        loop(2) {
+            if (i < ninputs) {
+                // output point 36 bytes
+                pos = pos + 36;
+                // 1 byte var
+                // script code + 4 bytes sequence
+                varLen = Util.fromLEUnsigned(tx[pos: pos + 1]);
+                if (varLen < 253) {
+                    scriptLen = varLen;
+                    pos = pos + 1 + scriptLen + 4;
+                } else if (varLen == 253) {
+                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 3]);
+                    pos = pos + 3 + scriptLen + 4;
+                } else if (varLen == 254) {
+                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 5]);
+                    pos = pos + 5 + scriptLen + 4;
+                } else {
+                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 9]);
+                    pos = pos + 9 + scriptLen + 4;
+                }
+                i = i + 1;
+            }
+        }
+
+        int noutputs = Util.fromLEUnsigned(tx[pos: pos + 1]);
+        pos = pos + 1;
+        i = 0;
+        require(noutputs <= 2);
+        loop(2) {
+            if (i < noutputs) {
+                // 8 bytes value
+                pos = pos + 8;
+                // script code
+                varLen = Util.fromLEUnsigned(tx[pos: pos + 1] + b'00');
+                if (varLen < 253) {
+                    scriptLen = varLen;
+                    pos = pos + 1 + scriptLen;
+                } else if (varLen == 253) {
+                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 3]);
+                    pos = pos + 3 + scriptLen;
+                } else if (varLen == 254) {
+                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 5]);
+                    pos = pos + 5 + scriptLen;
+                } else {
+                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 9]);
+                    pos = pos + 9 + scriptLen;
+                }
+                if (i == outputIndex) {
+                    res = tx[pos - scriptLen: pos];
+                }
+                i = i + 1;
+            }
+        }
+
+        // 4 bytes locktime
+        return res;
+    }
+}

@@ -1,0 +1,102 @@
+import "util.scrypt";
+import "tokenProto.scrypt";
+
+/**
+ * A token protocol based on UTXO model
+ */
+contract Token {
+
+    public function split(
+        SigHashPreimage txPreimage, 
+        PubKey senderPubKey,
+        Sig senderSig, 
+        Ripemd160 receiver0, 
+        int tokenAmount0, 
+        int satoshiAmount0, 
+        Ripemd160 receiver1, 
+        int tokenAmount1, 
+        int satoshiAmount1,
+        bytes outputScript2,
+        int satoshiAmount2
+    ) {
+        require(tokenAmount0 > 0);
+        // 1 to 1 transfer when tokenAmount1 is 0
+        require(tokenAmount1 >= 0);
+
+        // output2 is a charge output
+        require(satoshiAmount2 >= 0);
+
+        // this ensures the preimage is for the current tx
+		require(Tx.checkPreimage(txPreimage));
+
+        // read previous locking script
+        // locking script = codePart + OP_RETURN + senderAddress + balance 
+        bytes lockingScript = Util.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+
+        bytes senderAddress = TokenProto.getTokenAddress(lockingScript, scriptLen);
+        // authorize
+        require(hash160(senderPubKey) == senderAddress);
+        require(checkSig(senderSig, senderPubKey));
+
+        int senderBalance = TokenProto.getTokenValue(lockingScript, scriptLen);
+
+        // split
+        require(senderBalance == tokenAmount0 + tokenAmount1);
+        
+        // check output
+        bytes outputScript0 = TokenProto.getNewTokenScript(lockingScript, scriptLen, receiver0, tokenAmount0);
+        bytes output0 = Util.buildOutput(outputScript0, satoshiAmount0);
+
+        bytes outputScript1 = TokenProto.getNewTokenScript(lockingScript, scriptLen, receiver1, tokenAmount1);
+        bytes output1 = (tokenAmount1 > 0) ? Util.buildOutput(outputScript1, satoshiAmount1) : b'';
+
+        bytes output2 = b'';
+        if (satoshiAmount2 > 0) {
+            int lenOutScript2 = len(outputScript2);
+            if (lenOutScript2 >= TokenProto.DATA_LEN) {
+                bytes tokenID = TokenProto.getTokenID(outputScript2, lenOutScript2);
+                require(tokenID != TokenProto.getTokenID(lockingScript, scriptLen));
+            }
+            output2 = Util.buildOutput(outputScript2, satoshiAmount2);
+        }
+        
+		Sha256 hashOutputs = hash256(output0 + output1 + output2);
+        require(hashOutputs == Util.hashOutputs(txPreimage));
+    }
+
+    public function unlockFromContract(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex,
+        Ripemd160 receiver
+    ) {
+        SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
+        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+        // verify the prevScriptTx
+        // the script input index is 0
+        int outpointLen = 36;
+        bytes prevScriptTxId = prevouts[:32];
+        require(hash256(prevScriptTx) == prevScriptTxId);
+
+        // check the script
+        bytes lockingScript = Util.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+
+        int dataStart = scriptLen - Util.PubKeyHashLen - 8;
+
+        Ripemd160 scriptHash = Ripemd160(lockingScript[dataStart: dataStart + Util.PubKeyHashLen]);
+
+        bytes prevScriptCode = TokenProto.readOutputScript(prevScriptTx, prevScriptOutIndex);
+
+        require(hash160(prevScriptCode) == scriptHash);
+
+        // do not check the output to give the freedem to contract, use the oracle to verify contract output
+    }
+
+}

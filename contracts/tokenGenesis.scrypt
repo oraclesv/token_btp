@@ -1,0 +1,59 @@
+import "util.scrypt";
+
+contract tokenGenesis {
+    PubKey pubKey;
+    bytes tokenName;
+
+    // <token_name(10 bytes)> <is_genesis(1 byte)> <address(20 bytes)> + <token value(8 bytes)> + <tokenid(20 bytes)> + <proto type(4 bytes)> + <'oraclesv'(8 bytes)>
+    public function unlock(
+        SigHashPreimage txPreimage,
+        Sig sig,
+        bytes outputScript
+        ) {
+
+        SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
+        //TODO: use opt
+        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+
+        // check sig
+        require(checkSig(sig, this.pubKey));
+
+        // check input script oracle data
+        bytes data = Util.scriptCode(txPreimage);
+        int offset = len(data);
+        bytes tokenName = data[offset: offset + 10];
+        require(tokenName == this.tokenName);
+        int isGenesis = Util.fromLEUnsigned(data[offset + 10: offset + 11]);
+        require(isGenesis == 1);
+        //bytes address = data[offset + 11: offset + 31];
+        //require(address == b'0000000000000000000000000000000000000000');
+        int tokenValue = Util.fromLEUnsigned(data[offset + 31: offset + 39]);
+        require(tokenValue == 0);
+        bytes tokenID = data[offset + 39: offset + 59];
+        require(tokenID == b'0000000000000000000000000000000000000000');
+        int protoType = Util.fromLEUnsigned(data[offset + 59: offset + 63]);
+        require(protoType ==  1);
+        bytes flag = data[offset + 63: offset + 71];
+        // flag == 'oraclesv'
+        require(flag == b'6f7261636c657376');
+
+        Ripemd160 scriptHash = hash160(data);
+
+        // check tokenName
+        offset = len(outputScript);
+        tokenName = outputScript[offset: offset + 10];
+        require(tokenName == this.tokenName);
+        isGenesis = Util.fromLEUnsigned(outputScript[offset + 10: offset + 11]);
+        require(isGenesis == 0);
+        tokenID = outputScript[offset + 39: offset + 59];
+        require(tokenID == scriptHash);
+        protoType = Util.fromLEUnsigned(outputScript[offset + 59: offset + 63]);
+        require(protoType ==  1);
+        flag = outputScript[offset + 63: offset + 71];
+        // flag == 'oraclesv'
+        require(flag == b'6f7261636c657376');
+
+        bytes hashOutput = hash256(outputScript);
+        require(hashOutput == Util.hashOutputs(txPreimage));
+    }
+}
