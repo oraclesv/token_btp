@@ -13,7 +13,7 @@ contract tokenGenesis {
 
         SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
         //TODO: use opt
-        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+        //require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
 
         // check sig
         require(checkSig(sig, this.pubKey));
