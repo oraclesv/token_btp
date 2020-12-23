@@ -3,7 +3,6 @@ const {
   buildContractClass,
   getPreimage,
   toHex,
-  num2bin,
   SigHashPreimage,
   signTx,
   PubKey,
@@ -29,20 +28,7 @@ const PROTO_FLAG = Buffer.from('oraclesv')
 const dustLimit = 546
 
 const Genesis = buildContractClass(loadDesc('tokenGenesis_desc.json'))
-const Token = buildContractClass(loadDesc('tokenButp_desc.json'))
-
-TokenUtil.getNewTokenScript = function(script, address, tokenAmount) {
-  const scriptBuf = script.toBuffer()
-  const amountBuf = Buffer.alloc(8, 0)
-  amountBuf.writeBigUInt64LE(BigInt(tokenAmount))
-  const newScript = Buffer.concat([
-    scriptBuf.subarray(0, scriptBuf.length - TokenProto.TOKEN_ADDRESS_OFFSET),
-    address.hashBuffer,
-    amountBuf,
-    scriptBuf.subarray(scriptBuf.length - TokenProto.TYPE_OFFSET, scriptBuf.length)
-  ])
-  return bsv.Script.fromBuffer(newScript)
-}
+const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
 
 TokenUtil.createGenesis = function(
   inputTxId, // input tx id 
@@ -57,6 +43,7 @@ TokenUtil.createGenesis = function(
   chargeAddress, // charge bsv
   ) {
   const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')))
+  console.log('genesis create args:', toHex(issuerPubKey), tokenName.toString('hex'))
   const oracleData = Buffer.concat([
     tokenName,
     genesisFlag, 
@@ -159,8 +146,11 @@ TokenUtil.createToken = function(
   const unlockingScript = genesis.unlock(
       new SigHashPreimage(toHex(preimage)),
       new Sig(toHex(sig)),
-      new Bytes(lockingScript.toHex())
+      new Bytes(lockingScript.toHex()),
+      outputAmount
   ).toScript()
+
+  console.log('genesis unlocking args:', toHex(preimage), toHex(sig), lockingScript.toHex(), outputAmount)
 
   tx.inputs[0].setScript(unlockingScript)
 
@@ -175,8 +165,8 @@ TokenUtil.createTokenTransfer = function(
   senderPrivKey,
   feeTxId,
   feeTxOutputIndex,
-  feeScript, // input fee script
-  inputAmount2, // input tx to provide fee
+  feeScript, // input fee locking script
+  inputAmount2, // input fee tx satoshi amount
   feeTxPrivKey, 
   fee,
   address1, // first token output address
@@ -212,19 +202,21 @@ TokenUtil.createTokenTransfer = function(
   }))
 
   // first token output
-  const lockingScript1 = TokenUtil.getNewTokenScript(tokenScript, address1, tokenAmount1)
+  const lockingScript1 = bsv.Script.fromBuffer(TokenProto.getNewTokenScript(tokenScript, address1, tokenAmount1))
   tx.addOutput(new bsv.Transaction.Output({
       script: lockingScript1,
       satoshis: outputAmount1,
   }))
+  //console.log("createTokenTransfer lockingScript1:", lockingScript1.toHex())
 
   // seconde token output
   if (tokenAmount2 > 0) {
-    const lockingScript2 = TokenUtil.getNewTokenScript(tokenScript, address2, tokenAmount2)
+    const lockingScript2 = bsv.Script.fromBuffer(TokenProto.getNewTokenScript(tokenScript, address2, tokenAmount2))
     tx.addOutput(new bsv.Transaction.Output({
         script: lockingScript2,
         satoshis: outputAmount2,
     }))
+    //console.log("createTokenTransfer lockingScript2:", lockingScript2.toHex())
   }
 
   let chargeAmount = inputAmount1 + inputAmount2 - outputAmount1 - outputAmount2 - fee
@@ -249,7 +241,7 @@ TokenUtil.createTokenTransfer = function(
   const tokenContract = new Token()
   const unlockingScript = tokenContract.split(
       new SigHashPreimage(toHex(preimage)),
-      new PubKey(senderPrivKey.publicKey),
+      new PubKey(toHex(senderPrivKey.publicKey)),
       new Sig(toHex(sig)),
       new Ripemd160(address1.hashBuffer.toString('hex')),
       tokenAmount1,
@@ -261,6 +253,7 @@ TokenUtil.createTokenTransfer = function(
       chargeAmount,
   ).toScript()
   tx.inputs[0].setScript(unlockingScript)
+  console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), address1.hashBuffer.toString('hex'), tokenAmount1, outputAmount1, address2.hashBuffer.toString('hex'), tokenAmount2, outputAmount2, chargeScript, chargeAmount)
 
   const sigtype2 = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
   const hashData = bsv.crypto.Hash.sha256ripemd160(feeTxPrivKey.publicKey.toBuffer())

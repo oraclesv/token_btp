@@ -41,3 +41,17 @@ token.getGenesisFlag = function(script) {
 token.getTokenName = function(script) {
   return script.subarray(script.length - TOKEN_NAME_OFFSET, script.length - TOKEN_NAME_OFFSET + TOKEN_NAME_LEN).toString()
 }
+
+token.getNewTokenScript = function(script, address, tokenAmount) {
+  const scriptBuf = Buffer.from(script.toHex(), 'hex')
+  const amountBuf = Buffer.alloc(8, 0)
+  amountBuf.writeBigUInt64LE(BigInt(tokenAmount))
+  const firstBuf = scriptBuf.subarray(0, scriptBuf.length - TOKEN_ADDRESS_OFFSET)
+  const newScript = Buffer.concat([
+    firstBuf,
+    address.hashBuffer,
+    amountBuf,
+    scriptBuf.subarray(scriptBuf.length - TOKEN_ID_OFFSET, scriptBuf.length)
+  ])
+  return newScript
+}

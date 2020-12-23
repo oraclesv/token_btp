@@ -34,11 +34,6 @@ const bsvBalance3 = 1000000
 
 const dustLimit = 546
 
-let genesis = null
-let tokenContract = null
-let Token = null
-let TokenID = null
-
 const tokenName = Buffer.alloc(10, 0)
 tokenName.write('tcc')
 
@@ -48,23 +43,22 @@ const address1 = privateKey.toAddress()
 const address2 = privateKey2.toAddress()
 
 
-function createGenesisTx() {
-  const outAmount1 = 100000
-  const fee = 2000
-  const tx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, outAmount1, address1)
+async function createNewToken() {
+  let outAmount1 = dustLimit + 10000
+  let fee = 5000
+  let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, outAmount1, address1)
 
-  console.log('createGenesisTx:', tx.id, tx.serialize())
-  return tx
-}
+  //console.log('createGenesisTx:', genesisTx.id, genesisTx.serialize())
+  let txid = await sendTx(genesisTx)
+  console.log('genesisTx id:', txid)
 
-function createTokenTx(genesisTx) {
-  const genesisScript = genesisTx.outputs[0].script
-  const inputAmount = genesisTx.outputs[0].satoshis
+  let genesisScript = genesisTx.outputs[0].script
+  let inputAmount = genesisTx.outputs[0].satoshis
 
-  const tx = TokenUtil.createToken(genesisScript, tokenValue, address1, inputAmount, genesisTx.id, 0, 50000, privateKey)
+  const tokenTx = TokenUtil.createToken(genesisScript, tokenValue, address1, inputAmount, genesisTx.id, 0, dustLimit, privateKey)
 
-  console.log('createTokenTx:', tx.id, tx.serialize())
-  return tx
+  //console.log('createTokenTx:', tokenTx.id, tokenTx.serialize())
+  return tokenTx
 }
 
 function createTokenTransferTx(tokenTx) {
@@ -72,8 +66,8 @@ function createTokenTransferTx(tokenTx) {
   const tokenAmount2 = tokenValue - tokenAmount1
   const inputAmount = tokenTx.outputs[0].satoshis
   const fee = 4000
-  const outAmount1 = (inputAmount - fee) / 2
-  const outAmount2 = inputAmount - fee - outAmount1
+  const outAmount1 = dustLimit
+  const outAmount2 = dustLimit
 
   const tx = TokenUtil.createTokenTransfer(
     tokenTx.id,
@@ -96,22 +90,20 @@ function createTokenTransferTx(tokenTx) {
     address1,
   )
 
-  console.log('createTokenTransferTx', tx.id, tx.serialize())
+  //console.log('createTokenTransferTx', tx.id, tx.serialize())
   return tx
 }
 
 (async() => {
   try {
-    let genesisTx = createGenesisTx()
+    let tokenTx = await createNewToken()
 
-    let tokenTx = createTokenTx(genesisTx)
-
-    //let txid = await sendTx(tokenTx)
-    //console.log('tokenTx id:', txid)
+    let txid = await sendTx(tokenTx)
+    console.log('tokenTx id:', txid)
 
     let transferTx = createTokenTransferTx(tokenTx)
-    //txid = await sendTx(transferTx)
-    //console.log('transferTx id:', txid)
+    txid = await sendTx(transferTx)
+    console.log('transferTx id:', txid)
 
   } catch (error) {
     console.log('Failed on testnet')

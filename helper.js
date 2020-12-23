@@ -169,7 +169,7 @@ function showError(error) {
     console.log(error.request);
   } else {
     // Something happened in setting up the request that triggered an Error
-    console.log('Error:', error.message);
+    console.log('Error:', error.message, error.stack);
     if (error.context) {
       console.log(error.context);
     }
