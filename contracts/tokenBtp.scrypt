@@ -27,10 +27,9 @@ contract Token {
         require(satoshiAmount2 >= 0);
 
         // this ensures the preimage is for the current tx
-		//TODO: require(Tx.checkPreimage(txPreimage));
+		require(Tx.checkPreimage(txPreimage));
 
         // read previous locking script
-        // locking script = codePart + OP_RETURN + senderAddress + balance 
         bytes lockingScript = Util.scriptCode(txPreimage);
         int scriptLen = len(lockingScript);
 
@@ -73,7 +72,7 @@ contract Token {
         Ripemd160 receiver
     ) {
         SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
-        //TODO: require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
 
         // check prevouts
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));

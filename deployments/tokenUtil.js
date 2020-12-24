@@ -30,6 +30,13 @@ const dustLimit = 546
 const Genesis = buildContractClass(loadDesc('tokenGenesis_desc.json'))
 const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
 
+TokenUtil.getTokenContractHash = function() {
+  const token = new Token()
+  const lockingScript = token.lockingScript.toBuffer()
+  const contractHash = bsv.crypto.Hash.sha256ripemd160(lockingScript)
+  return contractHash
+}
+
 TokenUtil.createGenesis = function(
   inputTxId, // input tx id 
   inputTxIndex, // input tx output index
@@ -39,12 +46,14 @@ TokenUtil.createGenesis = function(
   fee, 
   issuerPubKey, // issuer public key
   tokenName, // token name you want
+  contractHash, // token contract hash
   genesisAmount, // geneis contract output satoshi
   chargeAddress, // charge bsv
   ) {
-  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')))
+  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')))
   console.log('genesis create args:', toHex(issuerPubKey), tokenName.toString('hex'))
   const oracleData = Buffer.concat([
+    contractHash,
     tokenName,
     genesisFlag, 
     Buffer.alloc(20, 0), // address
@@ -108,7 +117,9 @@ TokenUtil.createToken = function(
 
   const buffValue = Buffer.alloc(8, 0)
   buffValue.writeBigUInt64LE(BigInt(tokenValue))
+  const contractHash = TokenProto.getContractHash(scriptBuffer)
   const oracleData = Buffer.concat([
+    contractHash,
     Buffer.from(tokenName),
     nonGenesisFlag, // genesis flag
     address.hashBuffer, // address
@@ -142,7 +153,7 @@ TokenUtil.createToken = function(
 
   // TODO: get genesis from the script code
   const issuerPubKey = issuerPrivKey.publicKey
-  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(Buffer.from(tokenName).toString('hex')))
+  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(Buffer.from(tokenName).toString('hex')), new Bytes(contractHash.toString('hex')))
   const unlockingScript = genesis.unlock(
       new SigHashPreimage(toHex(preimage)),
       new Sig(toHex(sig)),

@@ -46,11 +46,12 @@ const address2 = privateKey2.toAddress()
 async function createNewToken() {
   let outAmount1 = dustLimit + 10000
   let fee = 5000
-  let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, outAmount1, address1)
+  const contractHash = TokenUtil.getTokenContractHash()
+  let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, contractHash, outAmount1, address1)
 
   //console.log('createGenesisTx:', genesisTx.id, genesisTx.serialize())
-  let txid = await sendTx(genesisTx)
-  console.log('genesisTx id:', txid)
+  //let txid = await sendTx(genesisTx)
+  console.log('genesisTx id:', genesisTx.id)
 
   let genesisScript = genesisTx.outputs[0].script
   let inputAmount = genesisTx.outputs[0].satoshis
@@ -98,12 +99,12 @@ function createTokenTransferTx(tokenTx) {
   try {
     let tokenTx = await createNewToken()
 
-    let txid = await sendTx(tokenTx)
-    console.log('tokenTx id:', txid)
+    //let txid = await sendTx(tokenTx)
+    console.log('tokenTx id:', tokenTx.id)
 
     let transferTx = createTokenTransferTx(tokenTx)
-    txid = await sendTx(transferTx)
-    console.log('transferTx id:', txid)
+    //txid = await sendTx(transferTx)
+    console.log('transferTx id:', transferTx.id)
 
   } catch (error) {
     console.log('Failed on testnet')
