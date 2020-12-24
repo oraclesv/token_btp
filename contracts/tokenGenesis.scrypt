@@ -13,7 +13,7 @@ contract tokenGenesis {
         int outputSatoshi
         ) {
 
-        SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
+        SigHashType sigHashType = SigHash.ALL | SigHash.FORKID;
         //TODO: use opt
         require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
 

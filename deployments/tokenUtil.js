@@ -147,7 +147,7 @@ TokenUtil.createToken = function(
     satoshis: outputAmount,
   }))
 
-  const sigtype = bsv.crypto.Signature.SIGHASH_SINGLE | bsv.crypto.Signature.SIGHASH_FORKID
+  const sigtype = bsv.crypto.Signature.ALL | bsv.crypto.Signature.SIGHASH_FORKID
   const preimage = getPreimage(tx, genesisScript.toASM(), inputAmount, inputIndex=genesisTxOutputIndex, sighashType=sigtype)
   const sig = signTx(tx, issuerPrivKey, genesisScript.toASM(), inputAmount, inputIndex=genesisTxOutputIndex, sighashType=sigtype)
 
