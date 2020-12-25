@@ -1,0 +1,81 @@
+contract TxUtil {
+    static int OUTPOINT_LEN = 36; 
+    static int TX_ID_LEN = 32;
+
+    static function fromLEUnsigned(bytes b): int {
+        return unpack(b + b'00');
+    }
+
+    static function readOutputScript(bytes tx, int outputIndex): bytes {
+        // first 4 bytes version
+        // 1 byte input num, only support max 2
+        int pos = 4;
+        int ninputs = TxUtil.fromLEUnsigned(tx[pos: pos + 1]);
+        pos = pos + 1;
+        int i = 0;
+        int scriptLen = 0;
+        int varLen = 0;
+        bytes res = b'';
+        // max support 3 input
+        // input
+        require(ninputs <= 3);
+        loop(3) {
+            if (i < ninputs) {
+                // output point 36 bytes
+                pos = pos + 36;
+                // 1 byte var
+                // script code + 4 bytes sequence
+                varLen = TxUtil.fromLEUnsigned(tx[pos: pos + 1]);
+                if (varLen < 253) {
+                    scriptLen = varLen;
+                    pos = pos + 1 + scriptLen + 4;
+                } else if (varLen == 253) {
+                    scriptLen = TxUtil.fromLEUnsigned(tx[pos + 1: pos + 3]);
+                    pos = pos + 3 + scriptLen + 4;
+                } else if (varLen == 254) {
+                    scriptLen = TxUtil.fromLEUnsigned(tx[pos + 1: pos + 5]);
+                    pos = pos + 5 + scriptLen + 4;
+                } else {
+                    scriptLen = TxUtil.fromLEUnsigned(tx[pos + 1: pos + 9]);
+                    pos = pos + 9 + scriptLen + 4;
+                }
+                i = i + 1;
+            }
+        }
+
+        int noutputs = TxUtil.fromLEUnsigned(tx[pos: pos + 1]);
+        pos = pos + 1;
+        i = 0;
+        require(noutputs <= 3);
+        loop(3) {
+            if (i < noutputs) {
+                // 8 bytes value
+                pos = pos + 8;
+                // script code
+                varLen = TxUtil.fromLEUnsigned(tx[pos: pos + 1] + b'00');
+                if (varLen < 253) {
+                    scriptLen = varLen;
+                    pos = pos + 1 + scriptLen;
+                } else if (varLen == 253) {
+                    scriptLen = TxUtil.fromLEUnsigned(tx[pos + 1: pos + 3]);
+                    pos = pos + 3 + scriptLen;
+                } else if (varLen == 254) {
+                    scriptLen = TxUtil.fromLEUnsigned(tx[pos + 1: pos + 5]);
+                    pos = pos + 5 + scriptLen;
+                } else {
+                    scriptLen = TxUtil.fromLEUnsigned(tx[pos + 1: pos + 9]);
+                    pos = pos + 9 + scriptLen;
+                }
+                if (i == outputIndex) {
+                    res = tx[pos - scriptLen: pos];
+                }
+                i = i + 1;
+            }
+        }
+
+        // 4 bytes locktime
+        return res;
+    }
+
+
+}

@@ -1,5 +1,6 @@
 import "util.scrypt";
 import "tokenProto.scrypt";
+import "txUtil.scrypt";
 
 /**
  * A token protocol based on UTXO model
@@ -27,7 +28,9 @@ contract Token {
         require(satoshiAmount2 >= 0);
 
         // this ensures the preimage is for the current tx
-		require(Tx.checkPreimage(txPreimage));
+        SigHashType sigHashType = SigHash.ALL | SigHash.FORKID;
+        //TODO: use opt
+        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
 
         // read previous locking script
         bytes lockingScript = Util.scriptCode(txPreimage);
@@ -91,7 +94,7 @@ contract Token {
 
         Ripemd160 scriptHash = Ripemd160(lockingScript[dataStart: dataStart + Util.PubKeyHashLen]);
 
-        bytes prevScriptCode = TokenProto.readOutputScript(prevScriptTx, prevScriptOutIndex);
+        bytes prevScriptCode = TxUtil.readOutputScript(prevScriptTx, prevScriptOutIndex);
 
         require(hash160(prevScriptCode) == scriptHash);
 

@@ -1,7 +1,6 @@
 import "util.scrypt";
 
 contract TokenProto {
-
     // <type specific data> + <proto header>
     // <proto header> = <type(4 bytes)> + <'oraclesv'(8 bytes)>
     //<token type specific data> = <contract hash(20 bytes)> + <token_name (10 bytes)> <is_genesis(1 byte)> <address(20 bytes)> + <token value(8 bytes)> + <tokenid(20 bytes)>
@@ -65,76 +64,5 @@ contract TokenProto {
 
     static function getContractCode(bytes script, int slen): bytes {
         return script[0: slen - TokenProto.DATA_LEN];
-    }
-
-    static function readOutputScript(bytes tx, int outputIndex): bytes {
-        // first 4 bytes version
-        // 1 byte input num, only support max 2
-        int pos = 4;
-        int ninputs = Util.fromLEUnsigned(tx[pos: pos + 1]);
-        pos = pos + 1;
-        int i = 0;
-        int scriptLen = 0;
-        int varLen = 0;
-        bytes res = b'';
-        // max support 3 input
-        // input
-        require(ninputs <= 2);
-        loop(2) {
-            if (i < ninputs) {
-                // output point 36 bytes
-                pos = pos + 36;
-                // 1 byte var
-                // script code + 4 bytes sequence
-                varLen = Util.fromLEUnsigned(tx[pos: pos + 1]);
-                if (varLen < 253) {
-                    scriptLen = varLen;
-                    pos = pos + 1 + scriptLen + 4;
-                } else if (varLen == 253) {
-                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 3]);
-                    pos = pos + 3 + scriptLen + 4;
-                } else if (varLen == 254) {
-                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 5]);
-                    pos = pos + 5 + scriptLen + 4;
-                } else {
-                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 9]);
-                    pos = pos + 9 + scriptLen + 4;
-                }
-                i = i + 1;
-            }
-        }
-
-        int noutputs = Util.fromLEUnsigned(tx[pos: pos + 1]);
-        pos = pos + 1;
-        i = 0;
-        require(noutputs <= 2);
-        loop(2) {
-            if (i < noutputs) {
-                // 8 bytes value
-                pos = pos + 8;
-                // script code
-                varLen = Util.fromLEUnsigned(tx[pos: pos + 1] + b'00');
-                if (varLen < 253) {
-                    scriptLen = varLen;
-                    pos = pos + 1 + scriptLen;
-                } else if (varLen == 253) {
-                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 3]);
-                    pos = pos + 3 + scriptLen;
-                } else if (varLen == 254) {
-                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 5]);
-                    pos = pos + 5 + scriptLen;
-                } else {
-                    scriptLen = Util.fromLEUnsigned(tx[pos + 1: pos + 9]);
-                    pos = pos + 9 + scriptLen;
-                }
-                if (i == outputIndex) {
-                    res = tx[pos - scriptLen: pos];
-                }
-                i = i + 1;
-            }
-        }
-
-        // 4 bytes locktime
-        return res;
     }
 }

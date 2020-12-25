@@ -9,26 +9,22 @@ const {
   PubKey,
   Sig,
   Bytes,
-  Ripemd160,
 } = require('scryptlib');
 const {
   loadDesc,
   inputSatoshis,
-  tx,
-  DataLen,
   dummyTxId,
   compileContract
 } = require('../../helper');
 
 const {
     privateKey,
-    privateKey2,
 } = require('../../privateKey');
 
 const TokenProto = require('../../deployments/tokenProto')
 
 // make a copy since it will be mutated
-let tx_
+let tx
 const outputAmount = 222222
 
 const tokenName = Buffer.alloc(10, 0)
@@ -39,18 +35,44 @@ const nonGenesisFlag = Buffer.from('00', 'hex')
 const tokenType = Buffer.alloc(4, 0)
 tokenType.writeUInt32LE(1)
 const PROTO_FLAG = Buffer.from('oraclesv')
-const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
+const Token = buildContractClass(compileContract('tokenBtp.scrypt'))
 const address1 = privateKey.toAddress()
-const address2 = privateKey2.toAddress()
 const tokenValue = 1000000
 const buffValue = Buffer.alloc(8, 0)
 buffValue.writeBigUInt64LE(BigInt(tokenValue))
 
+let genesis, result, contractHash, tokenID, genesisScript
+
+function createToken(oracleData) {
+  const token = new Token()
+  token.setDataPart(oracleData.toString('hex'))
+  const lockingScript = token.lockingScript
+  tx.addOutput(new bsv.Transaction.Output({
+    script: lockingScript,
+    satoshis: outputAmount
+  }))
+
+  const inIndex = 0
+  const inputAmount = inputSatoshis
+
+  const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
+  const preimage = getPreimage(tx, genesisScript.toASM(), inputAmount, inputIndex=inIndex, sighashType=sigtype)
+  const sig = signTx(tx, privateKey, genesisScript.toASM(), inputAmount, inputIndex=inIndex, sighashType=sigtype)
+
+  const txContext = { 
+    tx: tx, 
+    inputIndex: inIndex, 
+    inputSatoshis: inputAmount
+  }
+
+  result = genesis.unlock(new SigHashPreimage(toHex(preimage)), new Sig(toHex(sig)), new Bytes(lockingScript.toHex()), outputAmount).verify(txContext)
+  return result
+}
+
 describe('Test genesis contract unlock In Javascript', () => {
-  let genesis, result, contractHash, tokenID, genesisScript
 
   before(() => {
-    const Genesis = buildContractClass(loadDesc('tokenGenesis_desc.json'))
+    const Genesis = buildContractClass(compileContract('tokenGenesis.scrypt'))
     const token = new Token()
     token.setDataPart(Buffer.alloc(TokenProto.getHeaderLen(), 0).toString('hex'))
     const lockingScript = token.lockingScript.toBuffer()
@@ -72,8 +94,8 @@ describe('Test genesis contract unlock In Javascript', () => {
     genesisScript = genesis.lockingScript
     tokenID = bsv.crypto.Hash.sha256ripemd160(genesisScript.toBuffer())
 
-    tx_ = new bsv.Transaction()
-    tx_.addInput(new bsv.Transaction.Input({
+    tx = new bsv.Transaction()
+    tx.addInput(new bsv.Transaction.Input({
         prevTxId: dummyTxId,
         outputIndex: 0,
         script: ''
@@ -82,7 +104,6 @@ describe('Test genesis contract unlock In Javascript', () => {
   });
 
   it('should succeed', () => {
-    const token = new Token()
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
@@ -93,37 +114,93 @@ describe('Test genesis contract unlock In Javascript', () => {
       tokenType, // type
       PROTO_FLAG
     ])
-    token.setDataPart(oracleData.toString('hex'))
-    const lockingScript = token.lockingScript
-    tx_.addOutput(new bsv.Transaction.Output({
-      script: lockingScript,
-      satoshis: outputAmount
-    }))
-
-    const inIndex = 0
-    const inputAmount = inputSatoshis
-
-    const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
-    const preimage = getPreimage(tx_, genesisScript.toASM(), inputAmount, inputIndex=inIndex, sighashType=sigtype)
-    const sig = signTx(tx_, privateKey, genesisScript.toASM(), inputAmount, inputIndex=inIndex, sighashType=sigtype)
-
-    const txContext = { 
-      tx: tx_, 
-      inputIndex: inIndex, 
-      inputSatoshis: inputAmount
-    }
-
-    result = genesis.unlock(new SigHashPreimage(toHex(preimage)), new Sig(toHex(sig)), new Bytes(lockingScript.toHex()), outputAmount).verify(txContext)
+    const result = createToken(oracleData)
     expect(result.success, result.error).to.be.true
   });
 
-  //it('should fail when pushing wrong preimage', () => {
-  //  result = counter.increment(new SigHashPreimage(toHex(preimage) + '01'), outputAmount).verify()
-  //  expect(result.success, result.error).to.be.false
-  //});
+  it('should fail when get wrong contractHash', () => {
+    const oracleData = Buffer.concat([
+      Buffer.alloc(contractHash.length, 0),
+      tokenName,
+      nonGenesisFlag, 
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      tokenType, // type
+      PROTO_FLAG
+    ])
+    const result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+  });
 
-  //it('should fail when pushing wrong amount', () => {
-  //  result = counter.increment(new SigHashPreimage(toHex(preimage)), outputAmount - 1).verify()
-  //  expect(result.success, result.error).to.be.false
-  //});
+  it('should succeed when get wrong tokenName', () => {
+    const oracleData = Buffer.concat([
+      contractHash,
+      Buffer.alloc(tokenName.length, 0),
+      nonGenesisFlag, 
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      tokenType, // type
+      PROTO_FLAG
+    ])
+    const result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+  });
+  it('should failed when get wrong genesis flag', () => {
+    const oracleData = Buffer.concat([
+      contractHash,
+      tokenName,
+      genesisFlag, 
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      tokenType, // type
+      PROTO_FLAG
+    ])
+    const result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+  });
+  it('should failed when get wrong tokenID', () => {
+    const oracleData = Buffer.concat([
+      contractHash,
+      tokenName,
+      nonGenesisFlag, 
+      address1.hashBuffer, // address
+      buffValue, // token value
+      Buffer.alloc(tokenID.length, 0), // script code hash
+      tokenType, // type
+      PROTO_FLAG
+    ])
+    const result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+  });
+  it('should failed when get wrong tokenType', () => {
+    const oracleData = Buffer.concat([
+      contractHash,
+      tokenName,
+      nonGenesisFlag, 
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      Buffer.alloc(tokenType.length, 0), // type
+      PROTO_FLAG
+    ])
+    const result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+  });
+  it('should failed when get wrong proto flag', () => {
+    const oracleData = Buffer.concat([
+      contractHash,
+      tokenName,
+      nonGenesisFlag, 
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      tokenType, // type
+      Buffer.alloc(PROTO_FLAG.length, 0)
+    ])
+    const result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+  });
 });

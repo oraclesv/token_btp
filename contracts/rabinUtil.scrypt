@@ -1,0 +1,25 @@
+contract RabinUtil {
+    // rabin msg format:
+    // <tokenID(20 bytes)> + <txid(32 bytes)> + <outputIndex(4 bytes)>
+    static int RABIN_MSG_LEN = 56;
+    static int RABIN_SIG_LEN = 8;
+
+    static function rabinHash(bytes x): bytes {
+        // expand into 512 bit hash
+        bytes hx = sha256(x);
+        int idx = len(hx) / 2;
+        return sha256(hx[:idx]) + sha256(hx[idx:]);
+    }
+
+    static function getMsgTokenID(bytes msg): bytes {
+        return msg[0: 20];
+    }
+
+    static function getMsgTxId(bytes msg): bytes {
+        return msg[20: 52];
+    }
+
+    static function getMsgOutputIndex(bytes msg): int {
+        return unpack(msg[52: 56] + b'00');
+    }
+}
