@@ -1,0 +1,17 @@
+{
+    "version": 1,
+    "compilerVersion": "0.2.12+commit.ce592f4",
+    "contract": "TxUtil",
+    "md5": "ccc227075d82d914a87fb7b485941e49",
+    "structs": [],
+    "abi": [
+        {
+            "type": "constructor",
+            "params": []
+        }
+    ],
+    "file": "file:///Users/cc/workspace/token_btp/contracts/txUtil.scrypt",
+    "asm": "",
+    "sources": [],
+    "sourceMap": []
+}

@@ -71,7 +71,7 @@ function createToken(oracleData) {
 
 describe('Test genesis contract unlock In Javascript', () => {
 
-  before(() => {
+  beforeEach(() => {
     const Genesis = buildContractClass(compileContract('tokenGenesis.scrypt'))
     const token = new Token()
     token.setDataPart(Buffer.alloc(TokenProto.getHeaderLen(), 0).toString('hex'))

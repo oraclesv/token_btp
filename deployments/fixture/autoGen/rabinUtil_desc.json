@@ -1,0 +1,17 @@
+{
+    "version": 1,
+    "compilerVersion": "0.2.12+commit.ce592f4",
+    "contract": "RabinUtil",
+    "md5": "c2a6138b186141c248e180aa1f62ea1d",
+    "structs": [],
+    "abi": [
+        {
+            "type": "constructor",
+            "params": []
+        }
+    ],
+    "file": "file:///Users/cc/workspace/token_btp/contracts/rabinUtil.scrypt",
+    "asm": "",
+    "sources": [],
+    "sourceMap": []
+}

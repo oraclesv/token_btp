@@ -29,7 +29,7 @@ contract Token {
 
         // this ensures the preimage is for the current tx
         SigHashType sigHashType = SigHash.ALL | SigHash.FORKID;
-        //TODO: use opt
+        // could use check preimage opt
         require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
 
         // read previous locking script
@@ -50,8 +50,11 @@ contract Token {
         bytes outputScript0 = TokenProto.getNewTokenScript(lockingScript, scriptLen, receiver0, tokenAmount0);
         bytes output0 = Util.buildOutput(outputScript0, satoshiAmount0);
 
-        bytes outputScript1 = TokenProto.getNewTokenScript(lockingScript, scriptLen, receiver1, tokenAmount1);
-        bytes output1 = (tokenAmount1 > 0) ? Util.buildOutput(outputScript1, satoshiAmount1) : b'';
+        bytes output1 = b'';
+        if (tokenAmount1 > 0) {
+            bytes outputScript1 = TokenProto.getNewTokenScript(lockingScript, scriptLen, receiver1, tokenAmount1);
+            output1 = Util.buildOutput(outputScript1, satoshiAmount1);
+        }
 
         bytes output2 = b'';
         if (satoshiAmount2 > 0) {
