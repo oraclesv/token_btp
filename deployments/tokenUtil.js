@@ -49,13 +49,17 @@ TokenUtil.createGenesis = function(
   contractHash, // token contract hash
   genesisAmount, // geneis contract output satoshi
   chargeAddress, // charge bsv
+  decimalNul, // token amount decimal num
   ) {
-  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')))
+  const decimalBuf = Buffer.alloc(1, 0)
+  decimalBuf.writeUInt8(decimalNul)
+  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNul)
   console.log('genesis create args:', toHex(issuerPubKey), tokenName.toString('hex'))
   const oracleData = Buffer.concat([
     contractHash,
     tokenName,
     genesisFlag, 
+    decimalBuf,
     Buffer.alloc(20, 0), // address
     Buffer.alloc(8, 0), // token value
     Buffer.alloc(20, 0), // script code hash
@@ -106,7 +110,8 @@ TokenUtil.createToken = function(
   genesisTxId, // genesis tx id
   genesisTxOutputIndex, // genesis tx outputIndex
   outputAmount, // token output satoshi
-  issuerPrivKey // issuer private key
+  issuerPrivKey, // issuer private key
+  decimalNum  // token amount decimal num
   ) {
   const tokenContract = new Token()
 
@@ -115,6 +120,8 @@ TokenUtil.createToken = function(
 
   const tokenID = Buffer.from(bsv.crypto.Hash.sha256ripemd160(genesisScript.toBuffer()))
 
+  const decimalBuf = Buffer.alloc(1, 0)
+  decimalBuf.writeUInt8(decimalNum)
   const buffValue = Buffer.alloc(8, 0)
   buffValue.writeBigUInt64LE(BigInt(tokenValue))
   const contractHash = TokenProto.getContractHash(scriptBuffer)
@@ -122,6 +129,7 @@ TokenUtil.createToken = function(
     contractHash,
     Buffer.from(tokenName),
     nonGenesisFlag, // genesis flag
+    decimalBuf,
     address.hashBuffer, // address
     buffValue, // token value
     tokenID, // script code hash
@@ -153,7 +161,7 @@ TokenUtil.createToken = function(
 
   // TODO: get genesis from the script code
   const issuerPubKey = issuerPrivKey.publicKey
-  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(Buffer.from(tokenName).toString('hex')), new Bytes(contractHash.toString('hex')))
+  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(Buffer.from(tokenName).toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum)
   const unlockingScript = genesis.unlock(
       new SigHashPreimage(toHex(preimage)),
       new Sig(toHex(sig)),

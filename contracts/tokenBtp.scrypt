@@ -101,7 +101,7 @@ contract Token {
 
         require(hash160(prevScriptCode) == scriptHash);
 
-        // do not check the output to give the freedem to contract, use the oracle to verify contract output
+        // do not check the output, use the oracle to verify contract output
     }
 
 }

@@ -17,20 +17,20 @@ contract TokenRouter {
         bytes sigs, // TODO: sig length
         bytes outputSatoshis,
         bytes prevouts,
-        bytes prevInputTxs
+        bytes tokenScript // one token input script code
     ) {
         SigHashType sigHashType = SigHash.ALL | SigHash.FORKID;
         require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
 
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
 
-        // TODO: verify the input token
+        int scriptLen = len(tokenScript);
+        bytes contractHash = hash160(TokenProto.getContractCode(tokenScript, scriptLen));
+
         int i = 0;
         int sumInputToken = 0;
         int paddingPos = 0;
-        int prevInputTxsPos = 0;
-        bytes tokenScript = b'';
-        loop(5) {
+        loop(2) {
             if (i < nSenders) {
                 // verify the rabin sig
                 bytes msg = rabinMsgs[i * RabinUtil.RABIN_MSG_LEN: (i + 1) * RabinUtil.RABIN_MSG_LEN];
@@ -49,16 +49,13 @@ contract TokenRouter {
                 int inputTxOutputIdx = Util.fromLEUnsigned(prevouts[(i + 1) * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN: (i + 2) * TxUtil.OUTPOINT_LEN]);
 
                 // get prev input Tx
-                int prevInputTxLen = Util.fromLEUnsigned(prevInputTxs[prevInputTxsPos: prevInputTxsPos + 4]);
-                bytes prevInputTx = prevInputTxs[prevInputTxsPos + 4: prevInputTxsPos + 4 + prevInputTxLen];
-                prevInputTxsPos = prevInputTxsPos + 4 + prevInputTxLen;
-
                 require(inputTxId == RabinUtil.getMsgTxId(msg));
-                require(hash256(prevInputTx) == inputTxId);
+                require(inputTxOutputIdx == RabinUtil.getMsgOutputIndex(msg));
 
-                bytes inputScriptCode = TxUtil.readOutputScript(prevInputTx, inputTxOutputIdx);
-                int inputTokenAmount = TokenProto.getTokenValue(inputScriptCode, len(inputScriptCode));
-                tokenScript = inputScriptCode;
+                int inputTokenAmount = RabinUtil.getMsgTokenAmount(msg);
+
+                
+                require(contractHash == RabinUtil.getMsgContractHash(msg));
                 
                 sumInputToken = sumInputToken + inputTokenAmount;
             }
@@ -70,12 +67,12 @@ contract TokenRouter {
         // max support 5 receiver, you can change this num, but will cause the contrac size increase. you can customize your output
         i = 0;
         int sumOutputToken = 0;
-        loop(5) {
+        loop(2) {
             if (i < this.nReceivers) {
                 bytes address = this.receivers[i * TokenProto.TOKEN_ADDRESS_LEN: (i + 1) * TokenProto.TOKEN_ADDRESS_LEN];
                 int tokenAmount = Util.fromLEUnsigned(this.receiverTokenAmounts[i * TokenProto.TOKEN_VALUE_LEN: (i + 1) * TokenProto.TOKEN_VALUE_LEN]);
                 sumOutputToken = sumOutputToken + tokenAmount;
-                bytes outputScript = TokenProto.getNewTokenScript(tokenScript, len(tokenScript), address, tokenAmount);
+                bytes outputScript = TokenProto.getNewTokenScript(tokenScript, scriptLen, address, tokenAmount);
                 int outputSatoshi = Util.fromLEUnsigned(outputSatoshis[i * 8: (i + 1) * 8]);
                 bytes output = Util.buildOutput(outputScript, outputSatoshi);
                 outputs = outputs + output;

@@ -38,6 +38,7 @@ const tokenName = Buffer.alloc(10, 0)
 tokenName.write('tcc')
 
 const tokenValue = 1000000
+const decimalNum = 8
 
 const address1 = privateKey.toAddress()
 const address2 = privateKey2.toAddress()
@@ -47,7 +48,7 @@ async function createNewToken() {
   let outAmount1 = dustLimit + 10000
   let fee = 5000
   const contractHash = TokenUtil.getTokenContractHash()
-  let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, contractHash, outAmount1, address1)
+  let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, contractHash, outAmount1, address1, decimalNum)
 
   //console.log('createGenesisTx:', genesisTx.id, genesisTx.serialize())
   //let txid = await sendTx(genesisTx)
@@ -56,7 +57,7 @@ async function createNewToken() {
   let genesisScript = genesisTx.outputs[0].script
   let inputAmount = genesisTx.outputs[0].satoshis
 
-  const tokenTx = TokenUtil.createToken(genesisScript, tokenValue, address1, inputAmount, genesisTx.id, 0, dustLimit, privateKey)
+  const tokenTx = TokenUtil.createToken(genesisScript, tokenValue, address1, inputAmount, genesisTx.id, 0, dustLimit, privateKey, decimalNum)
 
   //console.log('createTokenTx:', tokenTx.id, tokenTx.serialize())
   return tokenTx

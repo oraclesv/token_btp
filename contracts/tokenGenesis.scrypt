@@ -5,6 +5,7 @@ contract tokenGenesis {
     PubKey pubKey;
     bytes tokenName;
     bytes contractHash;
+    int decimalNum;
 
     public function unlock(
         SigHashPreimage txPreimage,
@@ -27,6 +28,8 @@ contract tokenGenesis {
         require(tokenName == this.tokenName);
         int isGenesis = TokenProto.getGenesisFlag(data, dataLen);
         require(isGenesis == 1);
+        int decimalNum = TokenProto.getDecimalNum(data, dataLen);
+        require(decimalNum == this.decimalNum);
         bytes address = TokenProto.getTokenAddress(data, dataLen);
         require(address == b'0000000000000000000000000000000000000000');
         int tokenValue = TokenProto.getTokenValue(data, dataLen);
@@ -54,6 +57,8 @@ contract tokenGenesis {
         tokenName = TokenProto.getTokenName(outputScript, dataLen);
         require(tokenName == this.tokenName);
         isGenesis = TokenProto.getGenesisFlag(outputScript, dataLen);
+        decimalNum = TokenProto.getDecimalNum(outputScript, dataLen);
+        require(decimalNum == this.decimalNum);
         require(isGenesis == 0);
         tokenID = TokenProto.getTokenID(outputScript, dataLen);
         require(tokenID == genesisHash);

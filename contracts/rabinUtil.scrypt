@@ -1,8 +1,22 @@
 contract RabinUtil {
-    // rabin msg format:
-    // <tokenID(20 bytes)> + <txid(32 bytes)> + <outputIndex(4 bytes)>
-    static int RABIN_MSG_LEN = 56;
+    // TODO: rabin sig length
     static int RABIN_SIG_LEN = 8;
+
+    // rabin msg format:
+    // <tokenID(20 bytes)> + <txid(32 bytes)> + <outputIndex(4 bytes)> + <tokenAmount(8 bytes)> + <contractHash(20 bytes)>
+    static int TOKEN_ID_LEN = 20;
+    static int TX_ID_LEN = 32;
+    static int OUTPUT_INDEX_LEN = 4;
+    static int TOKEN_AMOUNT_LEN = 8;
+    static int CONTRACT_HASH_LEN = 20;
+
+    static int TX_ID_OFFSET = RabinUtil.TOKEN_ID_LEN;
+    static int OUTPUT_INDEX_OFFSET = RabinUtil.TX_ID_OFFSET + RabinUtil.TX_ID_LEN;
+    static int TOKEN_AMOUNT_OFFSET = RabinUtil.OUTPUT_INDEX_OFFSET + RabinUtil.OUTPUT_INDEX_OFFSET;
+    static int CONTRACT_HASH_OFFSET = RabinUtil.TOKEN_AMOUNT_OFFSET + RabinUtil.TOKEN_AMOUNT_LEN;
+
+
+    static int RABIN_MSG_LEN = RabinUtil.CONTRACT_HASH_OFFSET + RabinUtil.CONTRACT_HASH_LEN;
 
     static function rabinHash(bytes x): bytes {
         // expand into 512 bit hash
@@ -12,14 +26,22 @@ contract RabinUtil {
     }
 
     static function getMsgTokenID(bytes msg): bytes {
-        return msg[0: 20];
+        return msg[0: RabinUtil.TOKEN_ID_LEN];
     }
 
     static function getMsgTxId(bytes msg): bytes {
-        return msg[20: 52];
+        return msg[RabinUtil.TX_ID_OFFSET: RabinUtil.TX_ID_OFFSET + RabinUtil.TX_ID_LEN];
     }
 
     static function getMsgOutputIndex(bytes msg): int {
-        return unpack(msg[52: 56] + b'00');
+        return unpack(msg[RabinUtil.OUTPUT_INDEX_OFFSET: RabinUtil.OUTPUT_INDEX_OFFSET + RabinUtil.OUTPUT_INDEX_LEN]);
+    }
+
+    static function getMsgTokenAmount(bytes msg): int {
+        return unpack(msg[RabinUtil.TOKEN_AMOUNT_OFFSET: RabinUtil.TOKEN_AMOUNT_OFFSET + RabinUtil.TOKEN_AMOUNT_LEN] + b'00');
+    }
+
+    static function getMsgContractHash(bytes msg): bytes {
+        return msg[RabinUtil.CONTRACT_HASH_OFFSET: RabinUtil.CONTRACT_HASH_OFFSET + RabinUtil.CONTRACT_HASH_LEN];
     }
 }

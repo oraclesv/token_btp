@@ -2,7 +2,7 @@
     "version": 1,
     "compilerVersion": "0.2.12+commit.ce592f4",
     "contract": "RabinUtil",
-    "md5": "c2a6138b186141c248e180aa1f62ea1d",
+    "md5": "058507dd8a4088d927e93fa40c4c7e00",
     "structs": [],
     "abi": [
         {
@@ -11,7 +11,31 @@
         }
     ],
     "file": "file:///Users/cc/workspace/token_btp/contracts/rabinUtil.scrypt",
-    "asm": "",
-    "sources": [],
-    "sourceMap": []
+    "asm": "14 20 OP_8 14 OP_3 OP_PICK OP_0 OP_PICK OP_4 OP_PICK OP_ADD OP_0 OP_PICK OP_1 OP_PICK OP_ADD OP_0 OP_PICK OP_5 OP_PICK OP_ADD",
+    "sources": [
+        "/Users/cc/workspace/token_btp/contracts/rabinUtil.scrypt"
+    ],
+    "sourceMap": [
+        "0:7:31:7:33",
+        "0:8:28:8:30",
+        "0:10:35:10:36",
+        "0:11:36:11:38",
+        "0:13:40:13:41",
+        "0:13:40:13:41",
+        "0:14:47:14:48",
+        "0:14:47:14:48",
+        "0:14:72:14:73",
+        "0:14:72:14:73",
+        "0:14:61:14:63",
+        "0:15:47:15:48",
+        "0:15:47:15:48",
+        "0:15:79:15:80",
+        "0:15:79:15:80",
+        "0:15:68:15:70",
+        "0:16:48:16:49",
+        "0:16:48:16:49",
+        "0:16:80:16:81",
+        "0:16:80:16:81",
+        "0:16:69:16:71"
+    ]
 }
