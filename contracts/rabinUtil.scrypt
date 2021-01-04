@@ -1,6 +1,7 @@
 contract RabinUtil {
-    // TODO: rabin sig length
-    static int RABIN_SIG_LEN = 8;
+    // rabin sig length
+    static int RABIN_SIG_LEN = 128;
+    static int PADDING_SIZE_LEN = 2;
 
     // rabin msg format:
     // <tokenID(20 bytes)> + <txid(32 bytes)> + <outputIndex(4 bytes)> + <tokenAmount(8 bytes)> + <contractHash(20 bytes)>
@@ -12,7 +13,7 @@ contract RabinUtil {
 
     static int TX_ID_OFFSET = RabinUtil.TOKEN_ID_LEN;
     static int OUTPUT_INDEX_OFFSET = RabinUtil.TX_ID_OFFSET + RabinUtil.TX_ID_LEN;
-    static int TOKEN_AMOUNT_OFFSET = RabinUtil.OUTPUT_INDEX_OFFSET + RabinUtil.OUTPUT_INDEX_OFFSET;
+    static int TOKEN_AMOUNT_OFFSET = RabinUtil.OUTPUT_INDEX_OFFSET + RabinUtil.OUTPUT_INDEX_LEN;
     static int CONTRACT_HASH_OFFSET = RabinUtil.TOKEN_AMOUNT_OFFSET + RabinUtil.TOKEN_AMOUNT_LEN;
 
 

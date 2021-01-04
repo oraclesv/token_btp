@@ -6,16 +6,16 @@ import "rabinUtil.scrypt";
 contract TokenRouter {
     int rabinPubKey;
     int nReceivers;
-    bytes receivers;
-    bytes receiverTokenAmounts;
+    bytes receiverArray;
+    bytes receiverTokenAmountArray;
 
     public function unlock(
         SigHashPreimage txPreimage,
         int nSenders,
-        bytes rabinMsgs,
-        bytes paddings,
-        bytes sigs, // TODO: sig length
-        bytes outputSatoshis,
+        bytes rabinMsgArray,
+        bytes paddingArray,
+        bytes sigArray, // sig array
+        bytes outputSatoshiArray, // satoshi array 
         bytes prevouts,
         bytes tokenScript // one token input script code
     ) {
@@ -30,18 +30,19 @@ contract TokenRouter {
         int i = 0;
         int sumInputToken = 0;
         int paddingPos = 0;
-        loop(2) {
+        // max support loop num input token
+        loop(3) {
             if (i < nSenders) {
                 // verify the rabin sig
-                bytes msg = rabinMsgs[i * RabinUtil.RABIN_MSG_LEN: (i + 1) * RabinUtil.RABIN_MSG_LEN];
-                int paddingLen = Util.fromLEUnsigned(paddings[paddingPos: paddingPos + 1]);
+                bytes msg = rabinMsgArray[i * RabinUtil.RABIN_MSG_LEN: (i + 1) * RabinUtil.RABIN_MSG_LEN];
+                int paddingLen = Util.fromLEUnsigned(paddingArray[paddingPos: paddingPos + 1]);
                 bytes padding = b'';
                 if (paddingLen > 0) {
-                    padding = paddings[paddingPos + 1: paddingPos + 1 + paddingLen];
+                    padding = paddingArray[paddingPos + 1: paddingPos + 1 + paddingLen];
                 }
                 paddingPos = paddingPos + 1 + paddingLen;
                 int h = Util.fromLEUnsigned(RabinUtil.rabinHash(msg + padding));
-                int sig = Util.fromLEUnsigned(sigs[i * RabinUtil.RABIN_SIG_LEN: (i + 1) * RabinUtil.RABIN_SIG_LEN]);
+                int sig = Util.fromLEUnsigned(sigArray[i * RabinUtil.RABIN_SIG_LEN: (i + 1) * RabinUtil.RABIN_SIG_LEN]);
                 require((sig * sig) % this.rabinPubKey == h % this.rabinPubKey);
 
                 // verify input tx
@@ -64,16 +65,16 @@ contract TokenRouter {
 
         // check the outputs
         bytes outputs = b'';
-        // max support 5 receiver, you can change this num, but will cause the contrac size increase. you can customize your output
+        // max support loop num receiver, you can change this num, but will cause the contrac size increase. you can customize your output
         i = 0;
         int sumOutputToken = 0;
-        loop(2) {
+        loop(3) {
             if (i < this.nReceivers) {
-                bytes address = this.receivers[i * TokenProto.TOKEN_ADDRESS_LEN: (i + 1) * TokenProto.TOKEN_ADDRESS_LEN];
-                int tokenAmount = Util.fromLEUnsigned(this.receiverTokenAmounts[i * TokenProto.TOKEN_VALUE_LEN: (i + 1) * TokenProto.TOKEN_VALUE_LEN]);
+                bytes address = this.receiverArray[i * TokenProto.TOKEN_ADDRESS_LEN: (i + 1) * TokenProto.TOKEN_ADDRESS_LEN];
+                int tokenAmount = Util.fromLEUnsigned(this.receiverTokenAmountArray[i * TokenProto.TOKEN_VALUE_LEN: (i + 1) * TokenProto.TOKEN_VALUE_LEN]);
                 sumOutputToken = sumOutputToken + tokenAmount;
                 bytes outputScript = TokenProto.getNewTokenScript(tokenScript, scriptLen, address, tokenAmount);
-                int outputSatoshi = Util.fromLEUnsigned(outputSatoshis[i * 8: (i + 1) * 8]);
+                int outputSatoshi = Util.fromLEUnsigned(outputSatoshiArray[i * 8: (i + 1) * 8]);
                 bytes output = Util.buildOutput(outputScript, outputSatoshi);
                 outputs = outputs + output;
             }
