@@ -15,6 +15,8 @@ const {
     loadDesc,
 } = require('../helper');
 
+const Rabin = require('../rabin/rabin')
+
 const TokenProto = require('./tokenProto')
 
 const TokenUtil = module.exports
@@ -24,6 +26,8 @@ const nonGenesisFlag = Buffer.from('00', 'hex')
 const tokenType = Buffer.alloc(4, 0)
 tokenType.writeUInt32LE(1)
 const PROTO_FLAG = Buffer.from('oraclesv')
+// MSB of the sighash  due to lower S policy
+const MSB_THRESHOLD = 0x7E
 
 const dustLimit = 546
 
@@ -71,7 +75,7 @@ TokenUtil.createGenesis = function(
 
   const chargeAmount = inputAmount - genesisAmount - fee
   const genesisScript = genesis.lockingScript
-  console.log('genesisScript:', genesisScript.toHex())
+  //console.log('genesisScript:', genesisScript.toHex())
 
   const tx = new bsv.Transaction()
   tx.addInput(new bsv.Transaction.Input.PublicKeyHash({
@@ -169,7 +173,7 @@ TokenUtil.createToken = function(
       outputAmount
   ).toScript()
 
-  console.log('genesis unlocking args:', toHex(preimage), toHex(sig), lockingScript.toHex(), outputAmount)
+  //console.log('genesis unlocking args:', toHex(preimage), toHex(sig), lockingScript.toHex(), outputAmount)
 
   tx.inputs[0].setScript(unlockingScript)
 
@@ -177,107 +181,165 @@ TokenUtil.createToken = function(
 }
 
 TokenUtil.createTokenTransfer = function(
-  tokenTxId, // input token tx id
-  tokenTxOutputIndex,
-  tokenScript, // input token contract locking script
-  inputAmount1, // token input amount
-  senderPrivKey,
-  feeTxId,
-  feeTxOutputIndex,
-  feeScript, // input fee locking script
-  inputAmount2, // input fee tx satoshi amount
-  feeTxPrivKey, 
-  fee,
-  address1, // first token output address
-  tokenAmount1, // first token output amount
-  outputAmount1, // first token output satoshi
-  address2, // second token output address
-  tokenAmount2, // second output tokenAmount
-  outputAmount2, // second token output satoshi
-  chargeAddress, // charge bsv address
+  tokenInputArray,
+  satoshiInputArray,
+  rabinPubKey,
+  rabinMsgArray,
+  rabinPaddingArray,
+  rabinSigArray,
+  senderPrivKeyArray,
+  satoshiInputPrivKeyArray, 
+  tokenOutputArray,
+  changeSatoshis, // output change satoshis
+  changeAddress, // output change address
 ) {
   const tx = new bsv.Transaction()
 
-  // token contract input
-  tx.addInput(new bsv.Transaction.Input({
+  const tokenInputLen = tokenInputArray.length
+  let prevouts = Buffer.alloc(0)
+  let inputTokenScript
+  for (let i = 0; i < tokenInputLen; i++) {
+    const tokenInput = tokenInputArray[i]
+    const tokenScript = tokenInput.lockingScript
+    inputTokenScript = tokenScript
+    const inputSatoshis = tokenInput.satoshis
+    const txId = tokenInput.txId
+    const outputIndex = tokenInput.outputIndex
+    // token contract input
+    tx.addInput(new bsv.Transaction.Input({
+        output: new bsv.Transaction.Output({
+          script: tokenScript,
+          satoshis: inputSatoshis
+        }),
+        prevTxId: txId,
+        outputIndex: outputIndex,
+        script: bsv.Script.empty()
+    }))
+
+    // add outputpoint to prevouts
+    const indexBuf = Buffer.alloc(4, 0)
+    indexBuf.writeUInt32LE(outputIndex)
+    const txidBuf = Buffer.from([...Buffer.from(txId, 'hex')].reverse())
+    prevouts = Buffer.concat([
+      prevouts,
+      txidBuf,
+      indexBuf
+    ])
+  }
+
+  for (let i = 0; i < satoshiInputArray.length; i++) {
+    const satoshiInput = satoshiInputArray[i]
+    const lockingScript = satoshiInput.lockingScript
+    const inputSatoshis = satoshiInput.satoshis
+    const txId = satoshiInput.txId
+    const outputIndex = satoshiInput.outputIndex
+    // bsv input to provide fee
+    tx.addInput(new bsv.Transaction.Input.PublicKeyHash({
       output: new bsv.Transaction.Output({
-        script: tokenScript,
-        satoshis: inputAmount1
+        script: lockingScript,
+        satoshis: inputSatoshis
       }),
-      prevTxId: tokenTxId,
-      outputIndex: tokenTxOutputIndex,
+      prevTxId: txId,
+      outputIndex: outputIndex,
       script: bsv.Script.empty()
-  }))
-
-  // bsv input to provide fee
-  tx.addInput(new bsv.Transaction.Input.PublicKeyHash({
-    output: new bsv.Transaction.Output({
-      script: feeScript,
-      satoshis: inputAmount2
-    }),
-    prevTxId: feeTxId,
-    outputIndex: feeTxOutputIndex,
-    script: bsv.Script.empty()
-  }))
-
-  // first token output
-  const lockingScript1 = bsv.Script.fromBuffer(TokenProto.getNewTokenScript(tokenScript, address1, tokenAmount1))
-  tx.addOutput(new bsv.Transaction.Output({
-      script: lockingScript1,
-      satoshis: outputAmount1,
-  }))
-  //console.log("createTokenTransfer lockingScript1:", lockingScript1.toHex())
-
-  // seconde token output
-  if (tokenAmount2 > 0) {
-    const lockingScript2 = bsv.Script.fromBuffer(TokenProto.getNewTokenScript(tokenScript, address2, tokenAmount2))
-    tx.addOutput(new bsv.Transaction.Output({
-        script: lockingScript2,
-        satoshis: outputAmount2,
     }))
-    //console.log("createTokenTransfer lockingScript2:", lockingScript2.toHex())
+
+    // add outputpoint to prevouts
+    const indexBuf = Buffer.alloc(4, 0)
+    indexBuf.writeUInt32LE(outputIndex)
+    const txidBuf = Buffer.from([...Buffer.from(txId, 'hex')].reverse())
+    prevouts = Buffer.concat([
+      prevouts,
+      txidBuf,
+      indexBuf
+    ])
   }
 
-  let chargeAmount = inputAmount1 + inputAmount2 - outputAmount1 - outputAmount2 - fee
-
-  let chargeScript = null
-  if (chargeAmount >= dustLimit) {
-    chargeScript = bsv.Script.buildPublicKeyHashOut(chargeAddress)
+  let recervierArray = Buffer.alloc(0)
+  let receiverTokenAmountArray = Buffer.alloc(0)
+  let outputSatoshiArray = Buffer.alloc(0)
+  const tokenOutputLen = tokenOutputArray.length
+  for (let i = 0; i < tokenOutputLen; i++) {
+    const tokenOutput = tokenOutputArray[i]
+    const address = tokenOutput.address
+    const outputTokenAmount = tokenOutput.tokenAmount
+    const outputSatoshis = tokenOutput.satoshis
+    const lockingScript = TokenProto.getNewTokenScript(inputTokenScript, address, outputTokenAmount) 
     tx.addOutput(new bsv.Transaction.Output({
-      script: chargeScript,
-      satoshis: chargeAmount,
+        script: lockingScript,
+        satoshis: outputSatoshis,
     }))
-    chargeScript = chargeScript.toHex()
-  } else {
-    chargeAmount = 0
-    chargeScript = '00'
+    recervierArray = Buffer.concat([recervierArray, address.hashBuffer])
+    const tokenBuf = Buffer.alloc(8, 0)
+    tokenBuf.writeBigUInt64LE(BigInt(outputTokenAmount))
+    receiverTokenAmountArray = Buffer.concat([receiverTokenAmountArray, tokenBuf])
+    const satoshiBuf = Buffer.alloc(8, 0)
+    satoshiBuf.writeBigUInt64LE(BigInt(outputSatoshis))
+    outputSatoshiArray = Buffer.concat([outputSatoshiArray, satoshiBuf])
   }
 
-  let sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
-  const preimage = getPreimage(tx, tokenScript.toASM(), inputAmount1, inputIndex=tokenTxOutputIndex, sighashType=sigtype)
-  let sig = signTx(tx, senderPrivKey, tokenScript.toASM(), inputAmount1, inputIndex=tokenTxOutputIndex, sighashType=sigtype)
+  if (changeSatoshis > 0) {
+    const lockingScript = bsv.Script.buildPublicKeyHashOut(changeAddress)
+    tx.addOutput(new bsv.Transaction.Output({
+      script: lockingScript,
+      satoshis: changeSatoshis,
+    }))
+  }
 
-  const tokenContract = new Token()
-  const unlockingScript = tokenContract.split(
+  const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
+  for (let i = 0; i < tokenInputLen; i++) {
+    const senderPrivKey = senderPrivKeyArray[i]
+    const tokenInput = tokenInputArray[i]
+    const tokenScript = tokenInput.lockingScript
+    const satoshis = tokenInput.satoshis
+    const outputIndex = tokenInput.outputIndex
+    let preimage
+    // preimage optimize
+    for (let i = 0; ; i++) {
+      tx.nLockTime = i
+      const preimage_ = getPreimage(tx, tokenScript.toASM(), satoshis, inputIndex=outputIndex, sighashType=sigtype)
+      const preimageHex = toHex(preimage_)
+      const h = bsv.crypto.Hash.sha256sha256(Buffer.from(preimageHex, 'hex'))
+      const msb = h.readUInt8()
+      if (msb < MSB_THRESHOLD) {
+          // the resulting MSB of sighash must be less than the threshold
+          preimage = preimage_
+          break
+      }
+    }
+
+    let sig = signTx(tx, senderPrivKey, tokenScript.toASM(), satoshis, inputIndex=outputIndex, sighashType=sigtype)
+
+    const tokenContract = new Token()
+    const unlockingScript = tokenContract.route(
       new SigHashPreimage(toHex(preimage)),
       new PubKey(toHex(senderPrivKey.publicKey)),
       new Sig(toHex(sig)),
-      new Ripemd160(address1.hashBuffer.toString('hex')),
-      tokenAmount1,
-      outputAmount1,
-      new Ripemd160(address2.hashBuffer.toString('hex')),
-      tokenAmount2,
-      outputAmount2,
-      new Bytes(chargeScript),
-      chargeAmount,
-  ).toScript()
-  tx.inputs[0].setScript(unlockingScript)
-  console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), address1.hashBuffer.toString('hex'), tokenAmount1, outputAmount1, address2.hashBuffer.toString('hex'), tokenAmount2, outputAmount2, chargeScript, chargeAmount)
+      tokenInputLen,
+      new Bytes(prevouts.toString('hex')),
+      rabinPubKey,
+      new Bytes(rabinMsgArray.toString('hex')),
+      new Bytes(rabinPaddingArray.toString('hex')),
+      new Bytes(rabinSigArray.toString('hex')),
+      tokenOutputLen,
+      new Bytes(recervierArray.toString('hex')),
+      new Bytes(receiverTokenAmountArray.toString('hex')),
+      new Bytes(outputSatoshiArray.toString('hex')),
+      changeSatoshis,
+      new Ripemd160(changeAddress.hashBuffer.toString('hex'))
+    ).toScript()
+    tx.inputs[i].setScript(unlockingScript)
+  }
+  //console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), address1.hashBuffer.toString('hex'), tokenAmount1, outputAmount1, address2.hashBuffer.toString('hex'), tokenAmount2, outputAmount2, chargeScript, chargeAmount)
 
-  const sigtype2 = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
-  const hashData = bsv.crypto.Hash.sha256ripemd160(feeTxPrivKey.publicKey.toBuffer())
-  const sig2 = tx.inputs[1].getSignatures(tx, feeTxPrivKey, feeTxOutputIndex, sigtype2, hashData)
-  tx.inputs[1].addSignature(tx, sig2[0])
+  for (let i = 0; i < satoshiInputArray.length; i++) {
+    const privKey = satoshiInputPrivKeyArray[i]
+    const outputIndex = satoshiInputArray[i].outputIndex
+    const hashData = bsv.crypto.Hash.sha256ripemd160(privKey.publicKey.toBuffer())
+    const inputIndex = i + tokenInputLen
+    const sig = tx.inputs[inputIndex].getSignatures(tx, privKey, outputIndex, sigtype, hashData)
+    tx.inputs[inputIndex].addSignature(tx, sig[0])
+  }
 
   return tx
 }

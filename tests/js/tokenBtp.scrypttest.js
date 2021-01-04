@@ -44,6 +44,8 @@ const TokenProto = require('../../deployments/tokenProto')
 // make a copy since it will be mutated
 let tx
 const outputToken1 = 100
+// MSB of the sighash  due to lower S policy
+const MSB_THRESHOLD = 0x7E
 
 const tokenName = Buffer.alloc(10, 0)
 tokenName.write('tcc')
@@ -170,7 +172,20 @@ function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSato
   console.log('outputTokenArray:', outputTokenArray)
 
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
-  const preimage = getPreimage(tx, tokenContract.toASM(), inputSatoshis, inputIndex=nTokenInputs-1, sighashType=sigtype)
+  let preimage
+  // preimage optimize
+  for (let i = 0; ; i++) {
+    tx.nLockTime = i
+    const preimage_ = getPreimage(tx, tokenContract.toASM(), inputSatoshis, inputIndex=nTokenInputs-1, sighashType=sigtype)
+    const preimageHex = toHex(preimage_)
+    const h = bsv.crypto.Hash.sha256sha256(Buffer.from(preimageHex, 'hex'))
+    const msb = h.readUInt8()
+    if (msb < MSB_THRESHOLD) {
+        // the resulting MSB of sighash must be less than the threshold
+        preimage = preimage_
+        break
+    }
+  }
   const sig = signTx(tx, privateKey, tokenContract.toASM(), inputSatoshis, inputIndex=nTokenInputs-1, sighashType=sigtype)
 
   const txContext = { 
@@ -200,7 +215,6 @@ function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSato
       txidBuf,
       indexBuf,
       bufValue,
-      contractHash
     ])
     rabinMsgArray = Buffer.concat([rabinMsgArray, msg])
     const rabinSignResult = sign(msg.toString('hex'), rabinPrivateKey.p, rabinPrivateKey.q, rabinPubKey)

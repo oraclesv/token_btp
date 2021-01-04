@@ -62,8 +62,8 @@ contract Token {
         Ripemd160 changeAddress
     ) {
 
-        require(Tx.checkPreimage(txPreimage));
-        //TODO: require(Tx.checkPreimageOpt(txPreimage));
+        //require(Tx.checkPreimage(txPreimage));
+        require(Tx.checkPreimageOpt(txPreimage));
 
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
 
@@ -77,8 +77,6 @@ contract Token {
         // authorize
         require(hash160(senderPubKey) == senderAddress);
         require(checkSig(senderSig, senderPubKey));
-
-        bytes contractHash = hash160(TokenProto.getContractCode(tokenScript, scriptLen));
 
         int i = 0;
         int sumInputToken = 0;
@@ -109,9 +107,6 @@ contract Token {
                     require(inputTxOutputIdx == RabinUtil.getMsgOutputIndex(msg));
 
                     int inputTokenAmount = RabinUtil.getMsgTokenAmount(msg);
-
-
-                    require(contractHash == RabinUtil.getMsgContractHash(msg));
 
                     sumInputToken = sumInputToken + inputTokenAmount;
                 }
