@@ -28,6 +28,7 @@
   "license": "MIT",
   "dependencies": {
     "axios": "^0.19.2",
+    "bigint-buffer": "^1.1.5",
     "glob": "^7.1.6",
     "minimist": "^1.2.5",
     "scryptlib": "0.2.25",
