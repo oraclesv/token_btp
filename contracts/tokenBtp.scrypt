@@ -15,9 +15,10 @@ contract Token {
         int prevScriptOutIndex,
         Ripemd160 receiver
     ) {
-        // TODO: use opt
-        SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
-        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+        // use Tx.checkPreimageOpt_
+        //SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
+        //require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+        require(Tx.checkPreimageOpt_(txPreimage));
 
         // check prevouts
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));

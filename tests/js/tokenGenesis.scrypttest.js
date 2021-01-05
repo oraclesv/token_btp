@@ -23,6 +23,8 @@ const {
 
 const TokenProto = require('../../deployments/tokenProto')
 
+// MSB of the sighash  due to lower S policy
+const MSB_THRESHOLD = 0x7E
 // make a copy since it will be mutated
 let tx
 const outputAmount = 222222
@@ -57,7 +59,20 @@ function createToken(oracleData) {
   const inputAmount = inputSatoshis
 
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
-  const preimage = getPreimage(tx, genesisScript.toASM(), inputAmount, inputIndex=inIndex, sighashType=sigtype)
+  let preimage
+  // preimage optimize
+  for (let i = 0; ; i++) {
+    tx.nLockTime = i
+    const preimage_ = getPreimage(tx, genesisScript.toASM(), inputAmount, inputIndex=inIndex, sighashType=sigtype)
+    const preimageHex = toHex(preimage_)
+    const h = bsv.crypto.Hash.sha256sha256(Buffer.from(preimageHex, 'hex'))
+    const msb = h.readUInt8()
+    if (msb < MSB_THRESHOLD) {
+        // the resulting MSB of sighash must be less than the threshold
+        preimage = preimage_
+        break
+    }
+  }
   const sig = signTx(tx, privateKey, genesisScript.toASM(), inputAmount, inputIndex=inIndex, sighashType=sigtype)
 
   const txContext = { 
@@ -80,6 +95,7 @@ describe('Test genesis contract unlock In Javascript', () => {
     const contractCode = TokenProto.getContractCode(lockingScript)
     contractHash = bsv.crypto.Hash.sha256ripemd160(contractCode)
     genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum.readUInt8())
+    console.log('contract hash:', contractHash.toString('hex'))
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,

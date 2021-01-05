@@ -13,9 +13,9 @@ const {
 
 const {
     loadDesc,
+    compileContract
 } = require('../helper');
 
-const Rabin = require('../rabin/rabin')
 
 const TokenProto = require('./tokenProto')
 
@@ -29,15 +29,19 @@ const PROTO_FLAG = Buffer.from('oraclesv')
 // MSB of the sighash  due to lower S policy
 const MSB_THRESHOLD = 0x7E
 
-const dustLimit = 546
-
 const Genesis = buildContractClass(loadDesc('tokenGenesis_desc.json'))
 const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
+//const Genesis = buildContractClass(compileContract('tokenGenesis.scrypt'))
+//const Token = buildContractClass(compileContract('tokenBtp.scrypt'))
+
+let genesisContract
 
 TokenUtil.getTokenContractHash = function() {
   const token = new Token()
+  token.setDataPart(Buffer.alloc(TokenProto.getHeaderLen(), 0).toString('hex'))
   const lockingScript = token.lockingScript.toBuffer()
-  const contractHash = bsv.crypto.Hash.sha256ripemd160(lockingScript)
+  const contractCode = TokenProto.getContractCode(lockingScript)
+  const contractHash = bsv.crypto.Hash.sha256ripemd160(contractCode)
   return contractHash
 }
 
@@ -53,12 +57,12 @@ TokenUtil.createGenesis = function(
   contractHash, // token contract hash
   genesisAmount, // geneis contract output satoshi
   chargeAddress, // charge bsv
-  decimalNul, // token amount decimal num
+  decimalNum, // token amount decimal num
   ) {
   const decimalBuf = Buffer.alloc(1, 0)
-  decimalBuf.writeUInt8(decimalNul)
-  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNul)
-  console.log('genesis create args:', toHex(issuerPubKey), tokenName.toString('hex'))
+  decimalBuf.writeUInt8(decimalNum)
+  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum)
+  console.log('genesis create args:', toHex(issuerPubKey), tokenName.toString('hex'), contractHash.toString('hex'), decimalNum)
   const oracleData = Buffer.concat([
     contractHash,
     tokenName,
@@ -72,8 +76,11 @@ TokenUtil.createGenesis = function(
   ])
   console.log('oracleData:', oracleData.toString('hex'))
   genesis.setDataPart(oracleData.toString('hex'))
+  console.log('genesis data part:', oracleData.toString('hex'))
 
-  const chargeAmount = inputAmount - genesisAmount - fee
+  genesisContract = genesis
+
+  const changeAmount = inputAmount - genesisAmount - fee
   const genesisScript = genesis.lockingScript
   //console.log('genesisScript:', genesisScript.toHex())
 
@@ -95,7 +102,7 @@ TokenUtil.createGenesis = function(
 
   tx.addOutput(new bsv.Transaction.Output({
     script: bsv.Script.buildPublicKeyHashOut(chargeAddress),
-    satoshis: chargeAmount,
+    satoshis: changeAmount,
   }))
 
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
@@ -113,7 +120,7 @@ TokenUtil.createToken = function(
   inputAmount, // genesis tx input satoshi
   genesisTxId, // genesis tx id
   genesisTxOutputIndex, // genesis tx outputIndex
-  outputAmount, // token output satoshi
+  outputSatoshis, // token output satoshi
   issuerPrivKey, // issuer private key
   decimalNum  // token amount decimal num
   ) {
@@ -146,7 +153,7 @@ TokenUtil.createToken = function(
   tx.addInput(new bsv.Transaction.Input({
     output: new bsv.Transaction.Output({
       script: genesisScript,
-      satoshis: inputAmount
+      satoshis: inputAmount,
     }),
     prevTxId: genesisTxId,
     outputIndex: genesisTxOutputIndex,
@@ -156,26 +163,43 @@ TokenUtil.createToken = function(
   const lockingScript = tokenContract.lockingScript
   tx.addOutput(new bsv.Transaction.Output({
     script: lockingScript,
-    satoshis: outputAmount,
+    satoshis: outputSatoshis,
   }))
 
-  const sigtype = bsv.crypto.Signature.ALL | bsv.crypto.Signature.SIGHASH_FORKID
-  const preimage = getPreimage(tx, genesisScript.toASM(), inputAmount, inputIndex=genesisTxOutputIndex, sighashType=sigtype)
+  const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
+  let preimage
+  // preimage optimize
+  for (let i = 0; ; i++) {
+    tx.nLockTime = i
+    const preimage_ = getPreimage(tx, genesisScript.toASM(), inputAmount, inputIndex=genesisTxOutputIndex, sighashType=sigtype)
+    const preimageHex = toHex(preimage_)
+    const h = bsv.crypto.Hash.sha256sha256(Buffer.from(preimageHex, 'hex'))
+    const msb = h.readUInt8()
+    if (msb < MSB_THRESHOLD) {
+        // the resulting MSB of sighash must be less than the threshold
+        preimage = preimage_
+        break
+    }
+  }
+  //console.log("preimage args:", inputAmount, genesisTxOutputIndex, sigtype, genesisScript.toBuffer().toString('hex'))
   const sig = signTx(tx, issuerPrivKey, genesisScript.toASM(), inputAmount, inputIndex=genesisTxOutputIndex, sighashType=sigtype)
 
   // TODO: get genesis from the script code
   const issuerPubKey = issuerPrivKey.publicKey
   const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(Buffer.from(tokenName).toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum)
-  const unlockingScript = genesis.unlock(
+  console.log('genesis args:', toHex(issuerPubKey), Buffer.from(tokenName).toString('hex'), contractHash.toString('hex'), decimalNum)
+  const unlockingScript = genesisContract.unlock(
       new SigHashPreimage(toHex(preimage)),
       new Sig(toHex(sig)),
       new Bytes(lockingScript.toHex()),
-      outputAmount
+      outputSatoshis
   ).toScript()
 
-  //console.log('genesis unlocking args:', toHex(preimage), toHex(sig), lockingScript.toHex(), outputAmount)
+  //console.log('genesis unlocking args:', toHex(preimage), toHex(sig), lockingScript.toHex(), outputSatoshis)
 
   tx.inputs[0].setScript(unlockingScript)
+
+  //console.log('creatToken:', tx.verify(), tx.serialize())
 
   return tx
 }
@@ -330,14 +354,14 @@ TokenUtil.createTokenTransfer = function(
     ).toScript()
     tx.inputs[i].setScript(unlockingScript)
   }
-  //console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), address1.hashBuffer.toString('hex'), tokenAmount1, outputAmount1, address2.hashBuffer.toString('hex'), tokenAmount2, outputAmount2, chargeScript, chargeAmount)
+  //console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), address1.hashBuffer.toString('hex'), tokenAmount1, outputAmount1, address2.hashBuffer.toString('hex'), tokenAmount2, outputAmount2, chargeScript, changeAmount)
 
   for (let i = 0; i < satoshiInputArray.length; i++) {
     const privKey = satoshiInputPrivKeyArray[i]
     const outputIndex = satoshiInputArray[i].outputIndex
     const hashData = bsv.crypto.Hash.sha256ripemd160(privKey.publicKey.toBuffer())
     const inputIndex = i + tokenInputLen
-    const sig = tx.inputs[inputIndex].getSignatures(tx, privKey, outputIndex, sigtype, hashData)
+    const sig = tx.inputs[inputIndex].getSignatures(tx, privKey, inputIndex, sigtype, hashData)
     tx.inputs[inputIndex].addSignature(tx, sig[0])
   }
 

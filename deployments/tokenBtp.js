@@ -23,12 +23,12 @@ const {
     privateKey3,
 } = require('../privateKey');
 const TokenUtil = require('./tokenUtil')
-const utxo1 =  '098828436d3764842164096508599a47f3a2c9f7c7aabea23732e88449388d40'
+const utxo1 =  '213bc4eaa56eececf37c2ef31ebdd159c3f48cfd0297b02273ae06f4ce913f99'
 const outIndex1 = 1
-const bsvBalance1 = 704454
-const utxo2 = '3396db84d171302cb6cb657edddf328a90d185ff99a2cb5d6528042bb017ca51'
-const outIndex2 = 2
-const bsvBalance2 = 625454
+const bsvBalance1 = 49887
+const utxo2 = 'ea661cb16881896d89719104630be7962258d6a8a22118f5590c45412941b09f'
+const outIndex2 = 1
+const bsvBalance2 = 1000000
 
 const dustLimit = 546
 
@@ -51,7 +51,7 @@ async function createNewToken() {
 
   //console.log('createGenesisTx:', genesisTx.id, genesisTx.serialize())
   //let txid = await sendTx(genesisTx)
-  console.log('genesisTx id:', genesisTx.id)
+  console.log('genesisTx id:', genesisTx.id, genesisTx.serialize().length)
 
   let genesisScript = genesisTx.outputs[0].script
   let inputAmount = genesisTx.outputs[0].satoshis
@@ -113,14 +113,14 @@ function createTokenTransferTx(tokenTx) {
   tokenOutputArray.push(tokenOutput)
 
   const tokenOutput2 = {
-    address: address1,
+    address: address2,
     tokenAmount: tokenAmount2,
     satoshis: dustLimit
   }
   tokenOutputArray.push(tokenOutput2)
 
   const tokenOutput3 = {
-    address: address3,
+    address: address2,
     tokenAmount: tokenAmount3,
     satoshis: dustLimit
   }
@@ -146,18 +146,18 @@ function createTokenTransferTx(tokenTx) {
 
 (async() => {
   try {
-    const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
+    /*const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
     token = new Token()
     const script = token.lockingScript
-    console.log('script len: ', script.toBuffer().length)
+    console.log('script len: ', script.toBuffer().length)*/
 
     let tokenTx = await createNewToken()
 
-    let txid = await sendTx(tokenTx)
+    //let txid = await sendTx(tokenTx)
     console.log('tokenTx id:', tokenTx.id, tokenTx.serialize().length)
 
     let transferTx = createTokenTransferTx(tokenTx)
-    txid = await sendTx(transferTx)
+    //txid = await sendTx(transferTx)
     console.log('transferTx id:', transferTx.id, transferTx.serialize().length)
 
   } catch (error) {

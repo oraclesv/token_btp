@@ -275,6 +275,10 @@ function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSato
   return result
 }
 
+// // use this if sigHashType needs to be customized, using Tx.checkPreimageOpt_(txPreimage)
+// const asmVars = {'Tx.checkPreimageOpt_.sigHashType': sighashType2Hex(sighashType)}
+// test.replaceAsmVars(asmVars)
+
 describe('Test token contract unlock In Javascript', () => {
 
   it('should succeed', () => {
