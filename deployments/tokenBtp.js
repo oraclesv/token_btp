@@ -78,7 +78,7 @@ function createTokenTransferTx(tokenTx) {
   const senderPrivKeyArray = []
   const satoshiInputPrivKeyArray = []
   const tokenOutputArray = []
-  const changeSatoshi = inputAmount - fee - dustLimit * 3
+  let changeSatoshi = inputAmount - fee - dustLimit * 3
   const changeAddress = address1
 
   const tokenInput = {
@@ -101,6 +101,7 @@ function createTokenTransferTx(tokenTx) {
     outputIndex: outIndex2,
   }
   satoshiInputArray.push(satoshiInput)
+  changeSatoshi += bsvBalance2
 
   senderPrivKeyArray.push(privateKey)
   satoshiInputPrivKeyArray.push(privateKey)
