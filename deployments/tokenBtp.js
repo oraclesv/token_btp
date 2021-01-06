@@ -22,13 +22,27 @@ const {
     privateKey2,
     privateKey3,
 } = require('../privateKey');
+const TokenProto = require('./TokenProto');
+const {toBufferLE} = require('bigint-buffer')
+
+const Rabin = require('../rabin/rabin')
+
+const rabinPrivateKey = {
+  "p": 5757440790098238249206056886132360783939976756626308615141839695681752813612764520921497694519841722889028334119917789649651692480869415368298368200263n,
+  "q": 650047001204168007801848889418948532353073326909497585177081016045346562912146630794965372241635285465610094863279373295872825824127728241709483771067n
+}
+const rabinPubKey = Rabin.privKeyToPubKey(rabinPrivateKey.p, rabinPrivateKey.q)
+
 const TokenUtil = require('./tokenUtil')
-const utxo1 =  '213bc4eaa56eececf37c2ef31ebdd159c3f48cfd0297b02273ae06f4ce913f99'
+const utxo1 =  '0c247c076fae77377af29388195645a1aeaf71389da5aa906413cb08887c59e0'
 const outIndex1 = 1
-const bsvBalance1 = 49887
-const utxo2 = 'ea661cb16881896d89719104630be7962258d6a8a22118f5590c45412941b09f'
+const bsvBalance1 = 1225056
+const utxo2 = '7080be33ac72db16c77e6a2121f889304ee819a449b4523908c673fc784af4a8'
 const outIndex2 = 1
-const bsvBalance2 = 1000000
+const bsvBalance2 = 1209510
+const utxo3 = '3b57a269322982c450111a8e052d73a5eea3db82d505c288c239a6b072d9d39f'
+const outIndex3 = 1
+const bsvBalance3 = 594000
 
 const dustLimit = 546
 
@@ -62,16 +76,16 @@ async function createNewToken() {
   return tokenTx
 }
 
+// only one token input
 function createTokenTransferTx(tokenTx) {
   const tokenAmount1 = 1000
   const tokenAmount2 = 2000
   const tokenAmount3 = tokenValue - tokenAmount1 - tokenAmount2
   const inputAmount = tokenTx.outputs[0].satoshis
-  const fee = 4000
+  const fee = 10000
 
   const tokenInputArray = []
   const satoshiInputArray = []
-  const rabinPubKey = 1
   const rabinMsgArray = Buffer.alloc(0)
   const rabinPaddingArray = Buffer.alloc(0)
   const rabinSigArray = Buffer.alloc(0)
@@ -145,6 +159,102 @@ function createTokenTransferTx(tokenTx) {
   return tx
 }
 
+// multi token input
+function createTokenTransferTx2(tokenTx) {
+  const inputAmount = tokenTx.outputs[0].satoshis
+  const fee = 10000
+
+  const tokenInputArray = []
+  const satoshiInputArray = []
+  let rabinMsgArray = Buffer.alloc(0)
+  let rabinPaddingArray = Buffer.alloc(0)
+  let rabinSigArray = Buffer.alloc(0)
+  const senderPrivKeyArray = []
+  const satoshiInputPrivKeyArray = []
+  const tokenOutputArray = []
+  let changeSatoshi = inputAmount - fee - dustLimit
+  const changeAddress = address1
+  const nTokenInput = 3
+
+  let allTokenInput = BigInt(0)
+  for (let i = 0; i < nTokenInput; i++) {
+    const lockingScript = tokenTx.outputs[i].script
+    const scriptBuf = lockingScript.toBuffer()
+    const tokenValue = TokenProto.getTokenValue(scriptBuf)
+    const tokenID = TokenProto.getTokenID(scriptBuf)
+    const tokenInput = {
+      lockingScript: lockingScript,
+      satoshis: tokenTx.outputs[i].satoshis,
+      txId: tokenTx.id,
+      outputIndex: i
+    }
+    tokenInputArray.push(tokenInput)
+    senderPrivKeyArray.push(privateKey2)
+    allTokenInput += tokenValue
+
+    const indexBuf = Buffer.alloc(4, 0)
+    indexBuf.writeUInt32LE(i)
+    const txidBuf = Buffer.from([...Buffer.from(tokenTx.id, 'hex')].reverse())
+
+    const bufValue = Buffer.alloc(8, 0)
+    bufValue.writeBigUInt64LE(BigInt(tokenValue))
+    const msg = Buffer.concat([
+      tokenID,
+      txidBuf,
+      indexBuf,
+      bufValue,
+    ])
+    rabinMsgArray = Buffer.concat([rabinMsgArray, msg])
+    const rabinSignResult = Rabin.sign(msg.toString('hex'), rabinPrivateKey.p, rabinPrivateKey.q, rabinPubKey)
+    //console.log('rabinsignature:', msg.toString('hex'), rabinSignResult.paddingByteCount, rabinSignResult.signature)
+    const sigBuf = toBufferLE(rabinSignResult.signature, 128)
+    rabinSigArray = Buffer.concat([rabinSigArray, sigBuf])
+    const paddingCountBuf = Buffer.alloc(2, 0)
+    paddingCountBuf.writeUInt16LE(rabinSignResult.paddingByteCount)
+    const padding = Buffer.alloc(rabinSignResult.paddingByteCount, 0)
+    rabinPaddingArray = Buffer.concat([
+      rabinPaddingArray,
+      paddingCountBuf,
+      padding
+    ])
+  }
+
+  const satoshiInput = {
+    lockingScript: bsv.Script.buildPublicKeyHashOut(address1),
+    satoshis: bsvBalance3,
+    txId: utxo3,
+    outputIndex: outIndex3,
+  }
+  satoshiInputArray.push(satoshiInput)
+  changeSatoshi += bsvBalance3
+
+  satoshiInputPrivKeyArray.push(privateKey)
+
+  const tokenOutput = {
+    address: address1,
+    tokenAmount: allTokenInput,
+    satoshis: dustLimit
+  }
+  tokenOutputArray.push(tokenOutput)
+
+  const tx = TokenUtil.createTokenTransfer(
+    tokenInputArray,
+    satoshiInputArray,
+    rabinPubKey,
+    rabinMsgArray,
+    rabinPaddingArray,
+    rabinSigArray,
+    senderPrivKeyArray,
+    satoshiInputPrivKeyArray,
+    tokenOutputArray,
+    changeSatoshi,
+    changeAddress
+  )
+
+  //console.log('createTokenTransferTx', tx.id, tx.serialize())
+  return tx
+}
+
 (async() => {
   try {
     /*const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
@@ -157,10 +267,15 @@ function createTokenTransferTx(tokenTx) {
     //let txid = await sendTx(tokenTx)
     console.log('tokenTx id:', tokenTx.id, tokenTx.serialize().length)
 
+    // 1 input token with 3 output token
     let transferTx = createTokenTransferTx(tokenTx)
     //txid = await sendTx(transferTx)
     console.log('transferTx id:', transferTx.id, transferTx.serialize().length)
 
+    // 3 input token with 1 output token
+    let transferTx2 = createTokenTransferTx2(transferTx)
+    //txid = await sendTx(transferTx2)
+    console.log('transferTx2 id:', transferTx2.id, transferTx2.serialize().length)
   } catch (error) {
     console.log('Failed on testnet')
     showError(error)

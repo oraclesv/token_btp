@@ -64,6 +64,10 @@ token.getContractCode = function(script) {
   return script.subarray(0, script.length - TOKEN_HEADER_LEN)
 }
 
+token.getOracleData = function(script) {
+  return script.subarray(script.length - TOKEN_HEADER_LEN, script.length)
+}
+
 token.getNewTokenScript = function(script, address, tokenAmount) {
   const scriptBuf = Buffer.from(script.toHex(), 'hex')
   const amountBuf = Buffer.alloc(8, 0)

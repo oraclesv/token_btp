@@ -16,9 +16,9 @@ contract Token {
         Ripemd160 receiver
     ) {
         // use Tx.checkPreimageOpt_
-        //SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
-        //require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
-        require(Tx.checkPreimageOpt_(txPreimage));
+        SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
+        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+        //require(Tx.checkPreimageOpt_(txPreimage));
 
         // check prevouts
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
@@ -82,6 +82,7 @@ contract Token {
         int i = 0;
         int sumInputToken = 0;
         int paddingPos = 0;
+        require(nSenders <= 3);
         // if nSenders == 1, donot need to verify rabin message
         if (nSenders > 1) {
             // max support loop num input token
@@ -121,6 +122,7 @@ contract Token {
         // max support loop num receiver, you can change this num, but will cause the contrac size increase. you can customize your output
         i = 0;
         int sumOutputToken = 0;
+        require(nReceivers <= 3);
         loop(3) {
             if (i < nReceivers) {
                 bytes address = receiverArray[i * TokenProto.TOKEN_ADDRESS_LEN: (i + 1) * TokenProto.TOKEN_ADDRESS_LEN];

@@ -45,19 +45,35 @@ TokenUtil.getTokenContractHash = function() {
   return contractHash
 }
 
+/** 
+ * create genesis contract utxo
+ * @function createGenesis
+ * @param inputTxId {hex String} the input utxo txid
+ * @param inputTxIndex {number} the input utxo output index
+ * @param inputScript {bsv.Script} the input utxo locking script
+ * @param inputAmount {number} the input utxo satoshis
+ * @param inputPrivKey {bsv.PrivateKey} the input utxo unlocking key 
+ * @param fee {number} the tx fee
+ * @param issuerPubKey {bsv.PublicKey} issuer public key used to unlocking genesis contract
+ * @param tokenName {Buffer} the token name
+ * @param contractHash {Buffer} the token contract code hash
+ * @param genesisAmount {number} the genesis contract utxo output satoshis
+ * @param changeAddress {bsv.Address} the change address
+ * @param decimalNum {number} the token amount decimal number
+*/
 TokenUtil.createGenesis = function(
-  inputTxId, // input tx id 
-  inputTxIndex, // input tx output index
-  inputScript, // input tx locking script
-  inputAmount,  // input tx satoshi
-  inputPrivKey, // input unlocking private key
+  inputTxId,
+  inputTxIndex,
+  inputScript,
+  inputAmount,
+  inputPrivKey, 
   fee, 
-  issuerPubKey, // issuer public key
-  tokenName, // token name you want
-  contractHash, // token contract hash
-  genesisAmount, // geneis contract output satoshi
-  chargeAddress, // charge bsv
-  decimalNum, // token amount decimal num
+  issuerPubKey,
+  tokenName,
+  contractHash, 
+  genesisAmount,
+  changeAddress,
+  decimalNum,
   ) {
   const decimalBuf = Buffer.alloc(1, 0)
   decimalBuf.writeUInt8(decimalNum)
@@ -101,7 +117,7 @@ TokenUtil.createGenesis = function(
   }))
 
   tx.addOutput(new bsv.Transaction.Output({
-    script: bsv.Script.buildPublicKeyHashOut(chargeAddress),
+    script: bsv.Script.buildPublicKeyHashOut(changeAddress),
     satoshis: changeAmount,
   }))
 
@@ -113,16 +129,29 @@ TokenUtil.createGenesis = function(
   return tx
 }
 
+/** 
+ * create token contract from genesis contract utxo
+ * @function createToken
+ * @param genesisScript {bsv.Script} the genesis contract locking script
+ * @param tokenValue {number} the token value want to create
+ * @param address {bsv.Address} the token create address
+ * @param inputAmount {number} the genesis utxo satoshis
+ * @param genesisTxId {Hex String} the genesis utxo id
+ * @param genesisTxOutputIndex {number} the genesis utxo output index
+ * @param outputSatoshis {number} the token output satoshis
+ * @param issuerPubKey {number} the issuer private key to unlock genesis tx
+ * @param decimalNum {number} token amount decimal num
+*/
 TokenUtil.createToken = function(
-  genesisScript, // genesis tx output script
-  tokenValue,  // the token amount want to create
-  address, // token create address
-  inputAmount, // genesis tx input satoshi
-  genesisTxId, // genesis tx id
-  genesisTxOutputIndex, // genesis tx outputIndex
-  outputSatoshis, // token output satoshi
-  issuerPrivKey, // issuer private key
-  decimalNum  // token amount decimal num
+  genesisScript, 
+  tokenValue,  
+  address, 
+  inputAmount,
+  genesisTxId,
+  genesisTxOutputIndex,
+  outputSatoshis,
+  issuerPrivKey,
+  decimalNum 
   ) {
   const tokenContract = new Token()
 
@@ -204,6 +233,21 @@ TokenUtil.createToken = function(
   return tx
 }
 
+/** 
+ * create tx from token transfer
+ * @function createTokenTransfer
+ * @param tokenInputArray {Array of token input data} token input params, input data: {lockingScript: {bsv.Script}, satoshis: {number}, txId: {hex string}, outputIndex: {number}}
+ * @param satoshiInputArray {Array of input data} bsv input params, the input data format is same as token input data
+ * @param rabinPubKey {BigInt} rabin public key
+ * @param rabinMsgArray {Buffer} concat rabin msg of each token input
+ * @param rabinPaddingArray {Buffer} concat rabin verify padding of each token input
+ * @param rabinSignArray {Buffer} concat rabin signature of each token input
+ * @param senderPrivKeyArray {Array of bsv.PrivateKey} the input token unlocking private keys
+ * @param satoshiInputPrivKeyArray {Array of bsv.PrivateKey} the common bsv input unlocking private keys
+ * @param tokenOutputArray {Array of token output data} token output params, token output data: {address: {bsv.Address}, tokenAmount: {number}, satoshis: {number}}
+ * @param changeSatoshis {number} change output satoshis
+ * @param changeAddress {bsv.Address} change output address
+*/
 TokenUtil.createTokenTransfer = function(
   tokenInputArray,
   satoshiInputArray,
@@ -214,8 +258,8 @@ TokenUtil.createTokenTransfer = function(
   senderPrivKeyArray,
   satoshiInputPrivKeyArray, 
   tokenOutputArray,
-  changeSatoshis, // output change satoshis
-  changeAddress, // output change address
+  changeSatoshis, 
+  changeAddress, 
 ) {
   const tx = new bsv.Transaction()
 
@@ -288,11 +332,12 @@ TokenUtil.createTokenTransfer = function(
     const address = tokenOutput.address
     const outputTokenAmount = tokenOutput.tokenAmount
     const outputSatoshis = tokenOutput.satoshis
-    const lockingScript = TokenProto.getNewTokenScript(inputTokenScript, address, outputTokenAmount) 
+    const lockingScriptBuf = TokenProto.getNewTokenScript(inputTokenScript, address, outputTokenAmount) 
     tx.addOutput(new bsv.Transaction.Output({
-        script: lockingScript,
+        script: bsv.Script.fromBuffer(lockingScriptBuf),
         satoshis: outputSatoshis,
     }))
+    console.log('output script:', lockingScriptBuf.toString('hex'), outputSatoshis)
     recervierArray = Buffer.concat([recervierArray, address.hashBuffer])
     const tokenBuf = Buffer.alloc(8, 0)
     tokenBuf.writeBigUInt64LE(BigInt(outputTokenAmount))
@@ -308,6 +353,7 @@ TokenUtil.createTokenTransfer = function(
       script: lockingScript,
       satoshis: changeSatoshis,
     }))
+    console.log("addoutput:", lockingScript.toBuffer().toString('hex'), changeSatoshis)
   }
 
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
@@ -317,6 +363,8 @@ TokenUtil.createTokenTransfer = function(
     const tokenScript = tokenInput.lockingScript
     const satoshis = tokenInput.satoshis
     const outputIndex = tokenInput.outputIndex
+    const oracleData = TokenProto.getOracleData(tokenInput.lockingScript.toBuffer())
+    console.log('oracleData: ', oracleData.toString('hex'))
     let preimage
     // preimage optimize
     for (let i = 0; ; i++) {
@@ -353,8 +401,8 @@ TokenUtil.createTokenTransfer = function(
       new Ripemd160(changeAddress.hashBuffer.toString('hex'))
     ).toScript()
     tx.inputs[i].setScript(unlockingScript)
+    console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), tokenInputLen, prevouts.toString('hex'), rabinPubKey, rabinMsgArray.toString('hex'), rabinPaddingArray.toString('hex'), rabinSigArray.toString('hex'), tokenOutputLen, recervierArray.toString('hex'), receiverTokenAmountArray.toString('hex'), outputSatoshiArray.toString('hex'), changeSatoshis, changeAddress.hashBuffer.toString('hex'))
   }
-  //console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), address1.hashBuffer.toString('hex'), tokenAmount1, outputAmount1, address2.hashBuffer.toString('hex'), tokenAmount2, outputAmount2, chargeScript, changeAmount)
 
   for (let i = 0; i < satoshiInputArray.length; i++) {
     const privKey = satoshiInputPrivKeyArray[i]
@@ -365,5 +413,6 @@ TokenUtil.createTokenTransfer = function(
     tx.inputs[inputIndex].addSignature(tx, sig[0])
   }
 
+  console.log('createTokenTransferTx: ', tx.serialize())
   return tx
 }

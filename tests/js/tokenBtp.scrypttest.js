@@ -16,7 +16,8 @@ const {
   inputSatoshis,
   DataLen,
   dummyTxId,
-  compileContract
+  compileContract,
+  sighashType2Hex
 } = require('../../helper');
 const {toBufferLE} = require('bigint-buffer')
 
@@ -57,6 +58,9 @@ tokenType.writeUInt32LE(1)
 const PROTO_FLAG = Buffer.from('oraclesv')
 const Token = buildContractClass(compileContract('tokenBtp.scrypt'))
 //const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
+//const sighashSingle = bsv.crypto.Signature.SIGHASH_SINGLE | bsv.crypto.Signature.SIGHASH_FORKID
+//const asmVars = {'Tx.checkPreimageOpt_.sigHashType': sighashType2Hex(sighashSingle)}
+
 const address1 = privateKey.toAddress()
 const address2 = privateKey2.toAddress()
 const tokenValue = 1000
@@ -74,6 +78,7 @@ const decimalNum = Buffer.from('08', 'hex')
 
 function addInputTokens(nTokenInput, nSatoshiInput) {
   const token = new Token()
+  //token.replaceAsmVars(asmVars)
   token.setDataPart(Buffer.alloc(TokenProto.getHeaderLen(), 0).toString('hex'))
   const lockingScript = token.lockingScript.toBuffer()
   const contractCode = TokenProto.getContractCode(lockingScript)
@@ -98,6 +103,7 @@ function addInputTokens(nTokenInput, nSatoshiInput) {
       ])
 
     const token = new Token()
+    //token.replaceAsmVars(asmVars)
     token.setDataPart(oracleData.toString('hex'))
     tokenInstance = token
     const tokenScript = token.lockingScript
@@ -147,6 +153,7 @@ function addOutputTokens(nOutputToken, sumInputTokens, changeSatoshi) {
       PROTO_FLAG
       ])
     const token = new Token()
+    //token.replaceAsmVars(asmVars)
     token.setDataPart(oracleData.toString('hex'))
     tx.addOutput(new bsv.Transaction.Output({
       script: token.lockingScript,
@@ -166,9 +173,9 @@ function addOutputTokens(nOutputToken, sumInputTokens, changeSatoshi) {
   return outputTokenArray
 }
 
-function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSatoshi=0) {
+function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSatoshi=0, outputTokenAdd=0) {
   const sumInputTokens = addInputTokens(nTokenInputs, nSatoshiInput)
-  const outputTokenArray = addOutputTokens(nOutputs, sumInputTokens, changeSatoshi)
+  const outputTokenArray = addOutputTokens(nOutputs, sumInputTokens + outputTokenAdd, changeSatoshi)
   console.log('outputTokenArray:', outputTokenArray)
 
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
@@ -275,10 +282,6 @@ function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSato
   return result
 }
 
-// // use this if sigHashType needs to be customized, using Tx.checkPreimageOpt_(txPreimage)
-// const asmVars = {'Tx.checkPreimageOpt_.sigHashType': sighashType2Hex(sighashType)}
-// test.replaceAsmVars(asmVars)
-
 describe('Test token contract unlock In Javascript', () => {
 
   it('should succeed', () => {
@@ -301,33 +304,18 @@ describe('Test token contract unlock In Javascript', () => {
     }
   });
 
-  /*it('should failed because input and output token amount not equal', () => {
-    const bufValue1 = Buffer.alloc(8, 0)
-    bufValue1.writeBigUInt64LE(BigInt(tokenValue1))
-    const oracleData1 = Buffer.concat([
-      contractHash,
-      tokenName,
-      nonGenesisFlag, 
-      address1.hashBuffer, // address
-      bufValue1, // token value
-      tokenID, // script code hash
-      tokenType, // type
-      PROTO_FLAG
-    ])
-    const bufValue2 = Buffer.alloc(8, 0)
-    bufValue2.writeBigUInt64LE(BigInt(tokenValue2 + 100))
-    const oracleData2 = Buffer.concat([
-      contractHash,
-      tokenName,
-      nonGenesisFlag, 
-      address2.hashBuffer, // address
-      bufValue2, // token value
-      tokenID, // script code hash
-      tokenType, // type
-      PROTO_FLAG
-    ])
-    const result = createTokenSplit(oracleData1, oracleData2, 0, null)
+  if('should failed because token input is greater than 3', () => {
+    const result = verifyTokenContract(4, 1, 0, 0)
     expect(result.success, result.error).to.be.false
+  });
 
-  })*/
+  if('should failed because token output is greater than 3', () => {
+    const result = verifyTokenContract(1, 4, 0, 0)
+    expect(result.success, result.error).to.be.false
+  });
+
+  if('should failed because input output token amount donot match', () => {
+    const result = verifyTokenContract(1, 1, 0, 0, outputTokenAdd=1)
+    expect(result.success, result.error).to.be.false
+  });
 });
