@@ -63,8 +63,8 @@ contract Token {
         Ripemd160 changeAddress
     ) {
 
-        //require(Tx.checkPreimage(txPreimage));
-        require(Tx.checkPreimageOpt(txPreimage));
+        require(Tx.checkPreimage(txPreimage));
+        //require(Tx.checkPreimageOpt(txPreimage));
 
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
 

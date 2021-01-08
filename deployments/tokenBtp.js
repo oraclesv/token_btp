@@ -34,15 +34,15 @@ const rabinPrivateKey = {
 const rabinPubKey = Rabin.privKeyToPubKey(rabinPrivateKey.p, rabinPrivateKey.q)
 
 const TokenUtil = require('./tokenUtil')
-const utxo1 =  '0c247c076fae77377af29388195645a1aeaf71389da5aa906413cb08887c59e0'
+const utxo1 =  'b9c503696c01bf68d3ab98d1801164e32a906139de875a83918df37488ff00af'
 const outIndex1 = 1
-const bsvBalance1 = 1225056
-const utxo2 = '7080be33ac72db16c77e6a2121f889304ee819a449b4523908c673fc784af4a8'
+const bsvBalance1 = 673362
+const utxo2 = '17cf4fb80c9a40850578059b3e4675f66395f842f105b50fb8aec3435de7fa5d'
 const outIndex2 = 1
-const bsvBalance2 = 1209510
-const utxo3 = '3b57a269322982c450111a8e052d73a5eea3db82d505c288c239a6b072d9d39f'
+const bsvBalance2 = 34341
+const utxo3 = '7d2304932c5b4ba78410ede6bbd4a526caf231f643353fdfb30ae376c9b0a97f'
 const outIndex3 = 1
-const bsvBalance3 = 594000
+const bsvBalance3 = 578454
 
 const dustLimit = 546
 
@@ -64,8 +64,8 @@ async function createNewToken() {
   let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, contractHash, outAmount1, address1, decimalNum)
 
   //console.log('createGenesisTx:', genesisTx.id, genesisTx.serialize())
-  //let txid = await sendTx(genesisTx)
-  console.log('genesisTx id:', genesisTx.id, genesisTx.serialize().length)
+  //await sendTx(genesisTx)
+  console.log('genesisTx id:', genesisTx.id, genesisTx.serialize().length / 2)
 
   let genesisScript = genesisTx.outputs[0].script
   let inputAmount = genesisTx.outputs[0].satoshis
@@ -82,7 +82,7 @@ function createTokenTransferTx(tokenTx) {
   const tokenAmount2 = 2000
   const tokenAmount3 = tokenValue - tokenAmount1 - tokenAmount2
   const inputAmount = tokenTx.outputs[0].satoshis
-  const fee = 10000
+  const fee = 15000
 
   const tokenInputArray = []
   const satoshiInputArray = []
@@ -105,7 +105,6 @@ function createTokenTransferTx(tokenTx) {
 
   // if only one token input, donot need rabin sign
   if (tokenInputArray.length > 1) {
-    //TODO: add rabin msg
   }
 
   const satoshiInput = {
@@ -162,7 +161,7 @@ function createTokenTransferTx(tokenTx) {
 // multi token input
 function createTokenTransferTx2(tokenTx) {
   const inputAmount = tokenTx.outputs[0].satoshis
-  const fee = 10000
+  const fee = 15000
 
   const tokenInputArray = []
   const satoshiInputArray = []
@@ -264,18 +263,18 @@ function createTokenTransferTx2(tokenTx) {
 
     let tokenTx = await createNewToken()
 
-    //let txid = await sendTx(tokenTx)
-    console.log('tokenTx id:', tokenTx.id, tokenTx.serialize().length)
+    //await sendTx(tokenTx)
+    console.log('tokenTx id:', tokenTx.id, tokenTx.serialize().length / 2)
 
     // 1 input token with 3 output token
     let transferTx = createTokenTransferTx(tokenTx)
-    //txid = await sendTx(transferTx)
-    console.log('transferTx id:', transferTx.id, transferTx.serialize().length)
+    //await sendTx(transferTx)
+    console.log('transferTx id:', transferTx.id, transferTx.serialize().length / 2)
 
     // 3 input token with 1 output token
     let transferTx2 = createTokenTransferTx2(transferTx)
-    //txid = await sendTx(transferTx2)
-    console.log('transferTx2 id:', transferTx2.id, transferTx2.serialize().length)
+    //await sendTx(transferTx2)
+    console.log('transferTx2 id:', transferTx2.id, transferTx2.serialize().length / 2)
   } catch (error) {
     console.log('Failed on testnet')
     showError(error)

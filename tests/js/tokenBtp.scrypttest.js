@@ -70,9 +70,8 @@ const buffValue = Buffer.alloc(8, 0)
 buffValue.writeBigUInt64LE(BigInt(tokenValue))
 const tokenID = Buffer.alloc(20, 0)
 tokenID.write('testtokenid')
-let tokenContract
 let contractHash
-let tokenInstance
+let tokenInstance = []
 
 const decimalNum = Buffer.from('08', 'hex')
 
@@ -86,6 +85,7 @@ function addInputTokens(nTokenInput, nSatoshiInput) {
 
   tx = new bsv.Transaction()
   let sumInputTokens = 0
+  tokenInstance = []
   for (let i = 0; i < nTokenInput; i++) {
     const bufValue = Buffer.alloc(8, 0)
     bufValue.writeBigUInt64LE(BigInt(outputToken1 + i))
@@ -105,9 +105,8 @@ function addInputTokens(nTokenInput, nSatoshiInput) {
     const token = new Token()
     //token.replaceAsmVars(asmVars)
     token.setDataPart(oracleData.toString('hex'))
-    tokenInstance = token
+    tokenInstance.push(token)
     const tokenScript = token.lockingScript
-    tokenContract = tokenScript
     tx.addInput(new bsv.Transaction.Input({
       prevTxId: dummyTxId,
       outputIndex: i,
@@ -173,17 +172,25 @@ function addOutputTokens(nOutputToken, sumInputTokens, changeSatoshi) {
   return outputTokenArray
 }
 
-function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSatoshi=0, outputTokenAdd=0) {
+function verifyTokenContract(nTokenInputs, nOutputs, expected, nSatoshiInput=0, changeSatoshi=0, outputTokenAdd=0) {
   const sumInputTokens = addInputTokens(nTokenInputs, nSatoshiInput)
   const outputTokenArray = addOutputTokens(nOutputs, sumInputTokens + outputTokenAdd, changeSatoshi)
   console.log('outputTokenArray:', outputTokenArray)
+  for (let i = 0; i < nTokenInputs; i++) {
+    verifyOneTokenContract(outputTokenArray, nTokenInputs, nOutputs, nSatoshiInput, changeSatoshi, i, expected)
+  }
+}
 
+function verifyOneTokenContract(outputTokenArray, nTokenInputs, nOutputs, nSatoshiInput, changeSatoshi, inputIndex, expected) {
+  console.log('verifyOneTokenContract:', inputIndex, expected)
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
-  let preimage
+  const token = tokenInstance[inputIndex]
+  const preimage = getPreimage(tx, token.lockingScript.toASM(), inputSatoshis, inputIndex=inputIndex, sighashType=sigtype)
+  /*let preimage
   // preimage optimize
   for (let i = 0; ; i++) {
     tx.nLockTime = i
-    const preimage_ = getPreimage(tx, tokenContract.toASM(), inputSatoshis, inputIndex=nTokenInputs-1, sighashType=sigtype)
+    const preimage_ = getPreimage(tx, token.lockingScript.toASM(), inputSatoshis, inputIndex=inputIndex, sighashType=sigtype)
     const preimageHex = toHex(preimage_)
     const h = bsv.crypto.Hash.sha256sha256(Buffer.from(preimageHex, 'hex'))
     const msb = h.readUInt8()
@@ -192,12 +199,12 @@ function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSato
         preimage = preimage_
         break
     }
-  }
-  const sig = signTx(tx, privateKey, tokenContract.toASM(), inputSatoshis, inputIndex=nTokenInputs-1, sighashType=sigtype)
+  }*/
+  const sig = signTx(tx, privateKey, token.lockingScript.toASM(), inputSatoshis, inputIndex=inputIndex, sighashType=sigtype)
 
   const txContext = { 
     tx: tx, 
-    inputIndex: nTokenInputs-1, 
+    inputIndex: inputIndex, 
     inputSatoshis: inputSatoshis 
   }
 
@@ -262,7 +269,7 @@ function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSato
     outputSatoshiArray = Buffer.concat([outputSatoshiArray, satoshiBuf])
   }
 
-  const result = tokenInstance.route(
+  const result = token.route(
     new SigHashPreimage(toHex(preimage)),
     new PubKey(toHex(privateKey.publicKey)),
     new Sig(toHex(sig)),
@@ -279,7 +286,12 @@ function verifyTokenContract(nTokenInputs, nOutputs, nSatoshiInput=0, changeSato
     changeSatoshi,
     new Ripemd160(address1.hashBuffer.toString('hex'))
   ).verify(txContext)
-  return result
+  if (expected === true) {
+    expect(result.success, result.error).to.be.true
+  } else {
+    expect(result.success, result.error).to.be.false
+  }
+  //return result
 }
 
 describe('Test token contract unlock In Javascript', () => {
@@ -288,8 +300,7 @@ describe('Test token contract unlock In Javascript', () => {
     for (let i = 1; i <= 3; i++) {
       for (let j = 1; j <= 3; j++) {
         console.log("verify token contract:", i, j)
-        const result = verifyTokenContract(i, j, 0, 0)
-        expect(result.success, result.error).to.be.true
+        verifyTokenContract(i, j, true, 0, 0)
       }
     }
   });
@@ -298,24 +309,20 @@ describe('Test token contract unlock In Javascript', () => {
     for (let i = 1; i <= 3; i++) {
       for (let j = 1; j <= 3; j++) {
         console.log("verify token contract:", i, j)
-        const result = verifyTokenContract(i, j, 2, 1000)
-        expect(result.success, result.error).to.be.true
+        verifyTokenContract(i, j, true, 2, 1000)
       }
     }
   });
 
-  if('should failed because token input is greater than 3', () => {
-    const result = verifyTokenContract(4, 1, 0, 0)
-    expect(result.success, result.error).to.be.false
+  it('should failed because token input is greater than 3', () => {
+    verifyTokenContract(4, 1, false, 0, 0)
   });
 
-  if('should failed because token output is greater than 3', () => {
-    const result = verifyTokenContract(1, 4, 0, 0)
-    expect(result.success, result.error).to.be.false
+  it('should failed because token output is greater than 3', () => {
+    verifyTokenContract(1, 4, false, 0, 0)
   });
 
-  if('should failed because input output token amount donot match', () => {
-    const result = verifyTokenContract(1, 1, 0, 0, outputTokenAdd=1)
-    expect(result.success, result.error).to.be.false
+  it('should failed because input output token amount donot match', () => {
+    verifyTokenContract(1, 1, false, 0, 0, outputTokenAdd=1)
   });
 });

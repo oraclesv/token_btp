@@ -337,7 +337,7 @@ TokenUtil.createTokenTransfer = function(
         script: bsv.Script.fromBuffer(lockingScriptBuf),
         satoshis: outputSatoshis,
     }))
-    console.log('output script:', lockingScriptBuf.toString('hex'), outputSatoshis)
+    //console.log('output script:', lockingScriptBuf.toString('hex'), outputSatoshis)
     recervierArray = Buffer.concat([recervierArray, address.hashBuffer])
     const tokenBuf = Buffer.alloc(8, 0)
     tokenBuf.writeBigUInt64LE(BigInt(outputTokenAmount))
@@ -353,7 +353,7 @@ TokenUtil.createTokenTransfer = function(
       script: lockingScript,
       satoshis: changeSatoshis,
     }))
-    console.log("addoutput:", lockingScript.toBuffer().toString('hex'), changeSatoshis)
+    //console.log("addoutput:", lockingScript.toBuffer().toString('hex'), changeSatoshis)
   }
 
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
@@ -361,11 +361,11 @@ TokenUtil.createTokenTransfer = function(
     const senderPrivKey = senderPrivKeyArray[i]
     const tokenInput = tokenInputArray[i]
     const tokenScript = tokenInput.lockingScript
+    const scriptBuf = tokenScript.toBuffer()
     const satoshis = tokenInput.satoshis
     const outputIndex = tokenInput.outputIndex
-    const oracleData = TokenProto.getOracleData(tokenInput.lockingScript.toBuffer())
-    console.log('oracleData: ', oracleData.toString('hex'))
-    let preimage
+    const preimage = getPreimage(tx, tokenScript.toASM(), satoshis, inputIndex=outputIndex, sighashType=sigtype)
+    /*let preimage
     // preimage optimize
     for (let i = 0; ; i++) {
       tx.nLockTime = i
@@ -379,6 +379,9 @@ TokenUtil.createTokenTransfer = function(
           break
       }
     }
+    const oracleData = TokenProto.getOracleData(scriptBuf)
+    const contractCodeHash = bsv.crypto.Hash.sha256ripemd160(TokenProto.getContractCode(scriptBuf))
+    console.log("preimage args:", satoshis, outputIndex, TokenProto.getContractHash(scriptBuf).toString('hex'), contractCodeHash.toString('hex'), oracleData.toString('hex'))*/
 
     let sig = signTx(tx, senderPrivKey, tokenScript.toASM(), satoshis, inputIndex=outputIndex, sighashType=sigtype)
 
@@ -401,7 +404,7 @@ TokenUtil.createTokenTransfer = function(
       new Ripemd160(changeAddress.hashBuffer.toString('hex'))
     ).toScript()
     tx.inputs[i].setScript(unlockingScript)
-    console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), tokenInputLen, prevouts.toString('hex'), rabinPubKey, rabinMsgArray.toString('hex'), rabinPaddingArray.toString('hex'), rabinSigArray.toString('hex'), tokenOutputLen, recervierArray.toString('hex'), receiverTokenAmountArray.toString('hex'), outputSatoshiArray.toString('hex'), changeSatoshis, changeAddress.hashBuffer.toString('hex'))
+    //console.log('token transfer args:', toHex(preimage), toHex(senderPrivKey.publicKey), toHex(sig), tokenInputLen, prevouts.toString('hex'), rabinPubKey, rabinMsgArray.toString('hex'), rabinPaddingArray.toString('hex'), rabinSigArray.toString('hex'), tokenOutputLen, recervierArray.toString('hex'), receiverTokenAmountArray.toString('hex'), outputSatoshiArray.toString('hex'), changeSatoshis, changeAddress.hashBuffer.toString('hex'))
   }
 
   for (let i = 0; i < satoshiInputArray.length; i++) {
@@ -413,6 +416,6 @@ TokenUtil.createTokenTransfer = function(
     tx.inputs[inputIndex].addSignature(tx, sig[0])
   }
 
-  console.log('createTokenTransferTx: ', tx.serialize())
+  //console.log('createTokenTransferTx: ', tx.serialize())
   return tx
 }
