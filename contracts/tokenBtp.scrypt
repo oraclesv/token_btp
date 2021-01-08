@@ -10,36 +10,30 @@ contract Token {
 
     public function unlockFromContract(
         SigHashPreimage txPreimage,
+        int contractInputIndex,
         bytes prevouts,
         bytes prevScriptTx,
-        int prevScriptOutIndex,
-        Ripemd160 receiver
+        int prevScriptOutIndex
     ) {
-        // use Tx.checkPreimageOpt_
-        SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
-        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
-        //require(Tx.checkPreimageOpt_(txPreimage));
+        require(Tx.checkPreimage(txPreimage));
+        //require(Tx.checkPreimageOpt(txPreimage));
 
         // check prevouts
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
 
         // verify the prevScriptTx
-        // the script input index is 0
-        int outpointLen = 36;
-        bytes prevScriptTxId = prevouts[:32];
+        bytes prevScriptTxId = prevouts[contractInputIndex * TxUtil.OUTPOINT_LEN: contractInputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
         require(hash256(prevScriptTx) == prevScriptTxId);
 
         // check the script
         bytes lockingScript = Util.scriptCode(txPreimage);
         int scriptLen = len(lockingScript);
 
-        int dataStart = scriptLen - Util.PubKeyHashLen - 8;
-
-        Ripemd160 scriptHash = Ripemd160(lockingScript[dataStart: dataStart + Util.PubKeyHashLen]);
+        bytes contractHash = TokenProto.getTokenAddress(lockingScript, scriptLen);
 
         bytes prevScriptCode = TxUtil.readOutputScript(prevScriptTx, prevScriptOutIndex);
 
-        require(hash160(prevScriptCode) == scriptHash);
+        require(hash160(prevScriptCode) == contractHash);
 
         // do not check the output, use the oracle to verify contract output
     }
