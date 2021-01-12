@@ -1,0 +1,19 @@
+import "util.scrypt";
+
+contract TokenSell {
+
+    Ripemd160 bsvRecAddr;
+    int bsvRecAmount;
+
+    public function unlock(
+        SigHashPreimage txPreimage
+    ) {
+        SigHashType sigHashType = SigHash.SINGLE | SigHash.FORKID;
+        require(Util.checkPreimageSigHashType(txPreimage, sigHashType));
+
+        bytes outputScript = Util.buildPublicKeyHashScript(this.bsvRecAddr);
+        bytes output = Util.buildOutput(outputScript, this.bsvRecAmount);
+
+        require(hash256(output) == Util.hashOutputs(txPreimage));
+    }
+}

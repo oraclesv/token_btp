@@ -90,7 +90,7 @@ contract Token {
                         padding = paddingArray[paddingPos + RabinUtil.PADDING_SIZE_LEN: paddingPos + RabinUtil.PADDING_SIZE_LEN + paddingLen];
                     }
                     paddingPos = paddingPos + RabinUtil.PADDING_SIZE_LEN + paddingLen;
-                    int h = Util.fromLEUnsigned(RabinUtil.rabinHash(msg + padding));
+                    int h = RabinUtil.rabinHash(msg + padding);
                     int sig = Util.fromLEUnsigned(sigArray[i * RabinUtil.RABIN_SIG_LEN: (i + 1) * RabinUtil.RABIN_SIG_LEN]);
                     require((sig * sig) % rabinPubKey == h % rabinPubKey);
 

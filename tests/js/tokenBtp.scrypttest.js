@@ -57,6 +57,7 @@ const tokenType = Buffer.alloc(4, 0)
 tokenType.writeUInt32LE(1)
 const PROTO_FLAG = Buffer.from('oraclesv')
 const Token = buildContractClass(compileContract('tokenBtp.scrypt'))
+const TokenSell = buildContractClass(compileContract('tokenSell.scrypt'))
 //const Token = buildContractClass(loadDesc('tokenBtp_desc.json'))
 //const sighashSingle = bsv.crypto.Signature.SIGHASH_SINGLE | bsv.crypto.Signature.SIGHASH_FORKID
 //const asmVars = {'Tx.checkPreimageOpt_.sigHashType': sighashType2Hex(sighashSingle)}
@@ -75,13 +76,16 @@ let tokenInstance = []
 
 const decimalNum = Buffer.from('08', 'hex')
 
-function addInputTokens(nTokenInput, nSatoshiInput) {
+function getTokenContractHash() {
   const token = new Token()
   //token.replaceAsmVars(asmVars)
   token.setDataPart(Buffer.alloc(TokenProto.getHeaderLen(), 0).toString('hex'))
   const lockingScript = token.lockingScript.toBuffer()
   const contractCode = TokenProto.getContractCode(lockingScript)
   contractHash = Buffer.from(bsv.crypto.Hash.sha256ripemd160(contractCode))
+}
+
+function addInputTokens(nTokenInput, nSatoshiInput) {
 
   tx = new bsv.Transaction()
   let sumInputTokens = 0
@@ -294,9 +298,87 @@ function verifyOneTokenContract(outputTokenArray, nTokenInputs, nOutputs, nSatos
   //return result
 }
 
-describe('Test token contract unlock In Javascript', () => {
+function unlockFromContract(scriptHash=null) {
+  const prevTx = new bsv.Transaction()
+  prevTx.addInput(new bsv.Transaction.Input({
+    prevTxId: dummyTxId,
+    outputIndex: 0,
+    script: ''
+  }), bsv.Script.buildPublicKeyHashOut(address1), inputSatoshis)
+  const sellSatoshis = 10000
+  const tokenSell = new TokenSell(new Ripemd160(address1.hashBuffer.toString('hex')), sellSatoshis)
+  const sellScript = tokenSell.lockingScript
+  prevTx.addOutput(new bsv.Transaction.Output({
+    script: sellScript,
+    satoshis: inputSatoshis
+  }))
+  if (scriptHash === null) {
+    scriptHash = Buffer.from(bsv.crypto.Hash.sha256ripemd160(sellScript.toBuffer()))
+  }
 
-  it('should succeed', () => {
+  const bufValue = Buffer.alloc(8, 0)
+  bufValue.writeBigUInt64LE(BigInt(sellSatoshis * 10))
+  const oracleData = Buffer.concat([
+    contractHash,
+    tokenName,
+    nonGenesisFlag,
+    decimalNum,
+    scriptHash, // contract script hash
+    bufValue, // token value
+    tokenID, // script code hash
+    tokenType, // type
+    PROTO_FLAG
+    ])
+
+  const token = new Token()
+  //token.replaceAsmVars(asmVars)
+  token.setDataPart(oracleData.toString('hex'))
+  const tokenScript = token.lockingScript
+
+  tx = new bsv.Transaction()
+  tx.addInput(new bsv.Transaction.Input({
+    prevTxId: dummyTxId,
+    outputIndex: 0,
+    script: ''
+    }), tokenScript, inputSatoshis)
+  tx.addInput(new bsv.Transaction.Input({
+    prevTxId: prevTx.id,
+    outputIndex: 0,
+    script: ''
+    }), sellScript, inputSatoshis)
+
+  tx.addOutput(new bsv.Transaction.Output({
+    script: bsv.Script.buildPublicKeyHashOut(address1),
+    satoshis: sellSatoshis
+  }))
+
+  const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
+  const preimage = getPreimage(tx, token.lockingScript.toASM(), inputSatoshis, inputIndex=0, sighashType=sigtype)
+
+  const txContext = { 
+    tx: tx, 
+    inputIndex: 0, 
+    inputSatoshis: inputSatoshis 
+  }
+  const txidBuf = Buffer.from([...Buffer.from(dummyTxId, 'hex')].reverse())
+  const indexBuf = Buffer.alloc(4, 0)
+  indexBuf.writeUInt32LE(0)
+  const txidBuf2 = Buffer.from([...Buffer.from(prevTx.id, 'hex')].reverse())
+  const prevouts = Buffer.concat([
+    txidBuf,
+    indexBuf,
+    txidBuf2,
+    indexBuf,
+  ])
+  return {token, preimage, prevouts, prevTx, txContext}
+}
+
+describe('Test token contract unlock In Javascript', () => {
+  before(() => {
+    getTokenContractHash()
+  });
+
+  it('should succeed with multi input and output', () => {
     for (let i = 1; i <= 3; i++) {
       for (let j = 1; j <= 3; j++) {
         console.log("verify token contract:", i, j)
@@ -305,13 +387,53 @@ describe('Test token contract unlock In Javascript', () => {
     }
   });
 
-  it('should succeed', () => {
+  it('should succeed with bsv input', () => {
     for (let i = 1; i <= 3; i++) {
       for (let j = 1; j <= 3; j++) {
         console.log("verify token contract:", i, j)
         verifyTokenContract(i, j, true, 2, 1000)
       }
     }
+  });
+
+  it('it should succeed when using unlockFromContract', () => {
+    // create the contract tx
+    const {token, preimage, prevouts, prevTx, txContext} = unlockFromContract()
+    const result = token.unlockFromContract(
+      new SigHashPreimage(toHex(preimage)),
+      1,
+      new Bytes(prevouts.toString('hex')),
+      new Bytes(prevTx.serialize()),
+      0,
+    ).verify(txContext)
+    expect(result.success, result.error).to.be.true
+  });
+
+  it('it should failed when unlockFromContract with wrong prevTx', () => {
+    // create the contract tx
+    const {token, preimage, prevouts, prevTx, txContext} = unlockFromContract()
+    prevTx.nLockTime = 1
+    const result = token.unlockFromContract(
+      new SigHashPreimage(toHex(preimage)),
+      1,
+      new Bytes(prevouts.toString('hex')),
+      new Bytes(prevTx.serialize()),
+      0,
+    ).verify(txContext)
+    expect(result.success, result.error).to.be.false
+  });
+
+  it('it should failed when unlockFromContract with wrong contract script hash', () => {
+    // create the contract tx
+    const {token, preimage, prevouts, prevTx, txContext} = unlockFromContract(address2.hashBuffer)
+    const result = token.unlockFromContract(
+      new SigHashPreimage(toHex(preimage)),
+      1,
+      new Bytes(prevouts.toString('hex')),
+      new Bytes(prevTx.serialize()),
+      0,
+    ).verify(txContext)
+    expect(result.success, result.error).to.be.false
   });
 
   it('should failed because token input is greater than 3', () => {
