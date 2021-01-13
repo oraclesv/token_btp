@@ -1,0 +1,76 @@
+import "util.scrypt";
+import "txUtil.scrypt";
+
+// opReturn: tokenBalance + poolBalance + merkleRoot
+contract BtpSwap {
+    bytes addLiquidityContractHash;
+    bytes removeLiquidityContractHash;
+    bytes swapBsvToTokenContractHash;
+    bytes swapTokenToBsvContractHash;
+
+    function unlockFromContract(
+        bytes contractHash,
+        SigHashPreimage txPreimage,
+        int contractInputIndex,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex,
+        int scriptDataLen
+    ): bool {
+        require(Tx.checkPreimage(txPreimage));
+        //require(Tx.checkPreimageOpt(txPreimage));
+
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+        // verify the prevScriptTx
+        bytes prevScriptTxId = prevouts[contractInputIndex * TxUtil.OUTPOINT_LEN: contractInputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
+        require(hash256(prevScriptTx) == prevScriptTxId);
+
+        bytes prevScriptCode = TxUtil.readOutputScript(prevScriptTx, prevScriptOutIndex);
+        int scriptLen = len(prevScriptCode);
+        bytes contractCode = prevScriptCode[: scriptLen - scriptDataLen];
+
+        return hash160(contractCode) == contractHash;
+    }
+
+    public function addLiquidity(
+        SigHashPreimage txPreimage,
+        int contractInputIndex,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex
+    ) {
+        require(this.unlockFromContract(this.addLiquidityContractHash, txPreimage, contractInputIndex, prevouts, prevScriptTx, prevScriptOutIndex, 20));
+    }
+
+    public function removeLiquidity(
+        SigHashPreimage txPreimage,
+        int contractInputIndex,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex
+    ) {
+        require(this.unlockFromContract(this.removeLiquidityContractHash, txPreimage, contractInputIndex, prevouts, prevScriptTx, prevScriptOutIndex, 0));
+    }
+
+    public function swapBsvToToken(
+        SigHashPreimage txPreimage,
+        int contractInputIndex,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex
+    ) {
+        require(this.unlockFromContract(this.swapBsvToTokenContractHash, txPreimage, contractInputIndex, prevouts, prevScriptTx, prevScriptOutIndex, 0));
+    }
+
+    public function swapTokenToBsv(
+        SigHashPreimage txPreimage,
+        int contractInputIndex,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex
+    ) {
+        require(this.unlockFromContract(this.swapTokenToBsvContractHash, txPreimage, contractInputIndex, prevouts, prevScriptTx, prevScriptOutIndex, 0));
+    }
+}

@@ -56,7 +56,7 @@ contract TokenRouter {
                 int inputTokenAmount = RabinUtil.getMsgTokenAmount(msg);
 
                 
-                require(contractHash == RabinUtil.getMsgContractHash(msg));
+                //require(contractHash == RabinUtil.getMsgContractHash(msg));
                 
                 sumInputToken = sumInputToken + inputTokenAmount;
             }

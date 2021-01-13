@@ -1,9 +1,13 @@
 import "util.scrypt";
 
 contract TokenProto {
+
+    // flag is oraclesv
+    static bytes PROTO_FLAG = b'6f7261636c657376';
+    static int PROTO_TYPE = 1;
     // <type specific data> + <proto header>
     // <proto header> = <type(4 bytes)> + <'oraclesv'(8 bytes)>
-    //<token type specific data> = <contract hash(20 bytes)> + <token_name (10 bytes)> <is_genesis(1 byte)> <address(20 bytes)> + <token value(8 bytes)> + <tokenid(20 bytes)>
+    //<token type specific data> = <contract hash(20 bytes)> + <token_name (10 bytes)> <is_genesis(1 byte)> <decimailNum(1 byte)> <address(20 bytes)> + <token value(8 bytes)> + <tokenid(20 bytes)>
     static int TOKEN_ID_LEN = 20;
     static int TOKEN_VALUE_LEN = 8;
     static int TOKEN_ADDRESS_LEN = 20;
@@ -70,5 +74,17 @@ contract TokenProto {
 
     static function getContractCode(bytes script, int slen): bytes {
         return script[0: slen - TokenProto.DATA_LEN];
+    }
+
+    static function genTokenContractFromRawCode(
+        bytes tokenCode,
+        bytes codeHash,
+        bytes tokenName,
+        bytes decimalNum,
+        bytes tokenAddress, 
+        int tokenAmount,
+        bytes tokenID
+        ): bytes {
+        return tokenCode + codeHash + tokenName + b'00' + decimalNum + tokenAddress + num2bin(tokenAmount, 8) + tokenID + num2bin(TokenProto.PROTO_TYPE, 4) + TokenProto.PROTO_FLAG;
     }
 }

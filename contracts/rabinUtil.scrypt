@@ -1,30 +1,35 @@
+import "tokenProto.scrypt";
+import "util.script";
+
 contract RabinUtil {
     // rabin sig length
     static int RABIN_SIG_LEN = 128;
     static int PADDING_SIZE_LEN = 2;
 
-    // rabin msg format:
-    // <tokenID(20 bytes)> + <txid(32 bytes)> + <outputIndex(4 bytes)> + <tokenAmount(8 bytes)> + <contractHash(20 bytes)>
-    static int TOKEN_ID_LEN = 20;
+    // rabin msg common format:
+    // <txid(32 bytes)> + <outputIndex(4 bytes)> + <lockingScriptHash(20 bytes)> + <outputSatoshis(8 bytes)>
+
+    // common part
     static int TX_ID_LEN = 32;
     static int OUTPUT_INDEX_LEN = 4;
-    static int TOKEN_AMOUNT_LEN = 8;
+    static int LOCKING_SCRIPT_HASH_LEN = 20;
+    static int OUTPUT_SATOSHI_LEN = 8;
 
-    static int TX_ID_OFFSET = RabinUtil.TOKEN_ID_LEN;
+    static int TX_ID_OFFSET = 0;
     static int OUTPUT_INDEX_OFFSET = RabinUtil.TX_ID_OFFSET + RabinUtil.TX_ID_LEN;
-    static int TOKEN_AMOUNT_OFFSET = RabinUtil.OUTPUT_INDEX_OFFSET + RabinUtil.OUTPUT_INDEX_LEN;
+    static int LOCKING_SCRIPT_HASH_OFFSET = RabinUtil.OUTPUT_INDEX_OFFSET + RabinUtil.OUTPUT_INDEX_LEN;
+    static int OUTPUT_SATOSHI_OFFSET = RabinUtil.LOCKING_SCRIPT_HASH_OFFSET + RabinUtil.LOCKING_SCRIPT_HASH_LEN;
 
-    static int RABIN_MSG_LEN = RabinUtil.TOKEN_AMOUNT_OFFSET + RabinUtil.TOKEN_AMOUNT_LEN;
+    // token proto part
+    static int TOKEN_AMOUNT_OFFSET = RabinUtil.OUTPUT_SATOSHI_OFFSET + RabinUtil.OUTPUT_SATOSHI_LEN;
+    static int TOKEN_ID_OFFSET = RabinUtil.TOKEN_AMOUNT_OFFSET + TokenProto.TOKEN_VALUE_LEN;
+    static int TOKEN_RABIN_MSG_LEN = RabinUtil.TOKEN_ID_OFFSET + TokenProto.TOKEN_ID_LEN;
 
     static function rabinHash(bytes x): int {
         // expand into 512 bit hash
         bytes hx = sha256(x);
         int idx = len(hx) / 2;
         return unpack(sha256(hx[:idx]) + sha256(hx[idx:]) + b'00');
-    }
-
-    static function getMsgTokenID(bytes msg): bytes {
-        return msg[0: RabinUtil.TOKEN_ID_LEN];
     }
 
     static function getMsgTxId(bytes msg): bytes {
@@ -35,8 +40,51 @@ contract RabinUtil {
         return unpack(msg[RabinUtil.OUTPUT_INDEX_OFFSET: RabinUtil.OUTPUT_INDEX_OFFSET + RabinUtil.OUTPUT_INDEX_LEN]);
     }
 
-    static function getMsgTokenAmount(bytes msg): int {
-        return unpack(msg[RabinUtil.TOKEN_AMOUNT_OFFSET: RabinUtil.TOKEN_AMOUNT_OFFSET + RabinUtil.TOKEN_AMOUNT_LEN] + b'00');
+    static function getMsgLockingScriptHash(bytes msg): bytes {
+        return msg[RabinUtil.LOCKING_SCRIPT_HASH_OFFSET: RabinUtil.LOCKING_SCRIPT_HASH_OFFSET + RabinUtil.LOCKING_SCRIPT_HASH_LEN];
     }
 
+    static function getMsgOutputSatoshis(bytes msg): int {
+        return unpack(msg[RabinUtil.OUTPUT_SATOSHI_OFFSET: RabinUtil.OUTPUT_SATOSHI_OFFSET + RabinUtil.OUTPUT_SATOSHI_LEN] + b'00');
+    }
+
+    static function getMsgTokenAmount(bytes msg): int {
+        return unpack(msg[RabinUtil.TOKEN_AMOUNT_OFFSET: RabinUtil.TOKEN_AMOUNT_OFFSET + TokenProto.TOKEN_VALUE_LEN] + b'00');
+    }
+
+    static function getMsgTokenID(bytes msg): bytes {
+        return msg[RabinUtil.TOKEN_ID_OFFSET: RabinUtil.TOKEN_ID_OFFSET + TokenProto.TOKEN_ID_LEN];
+    }
+
+    static function verifyMsgThree(int[3] rabinPubKeyArray, bytes rabinMsg, bytes paddingArray, bytes sigArray): int {
+        int verifyCount = 0;
+        int i = 0;
+        int paddingPos = 0;
+        loop(3) {
+            int rabinPubKey = rabinPubKeyArray[i];
+            int paddingLen = Util.fromLEUnsigned(paddingArray[paddingPos: paddingPos + RabinUtil.PADDING_SIZE_LEN]);
+            bytes padding = b'';
+            if (paddingLen > 0) {
+                padding = paddingArray[paddingPos + RabinUtil.PADDING_SIZE_LEN: paddingPos + RabinUtil.PADDING_SIZE_LEN + paddingLen];
+            }
+            paddingPos = paddingPos + RabinUtil.PADDING_SIZE_LEN + paddingLen;
+            int h = RabinUtil.rabinHash(rabinMsg + padding);
+            int sig = Util.fromLEUnsigned(sigArray[i * RabinUtil.RABIN_SIG_LEN: (i + 1) * RabinUtil.RABIN_SIG_LEN]);
+            if ((sig * sig) % rabinPubKey == h % rabinPubKey) {
+                verifyCount = verifyCount + 1;
+            }
+            i = i + 1;
+        }
+        return verifyCount;
+    }
+
+    static function checkOutputPoint(bytes prevouts, int inputIndex, bytes rabinMsg): bool {
+        bytes prevTxId = prevouts[inputIndex * TxUtil.OUTPOINT_LEN: inputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
+        int outputIndex = Util.fromLEUnsigned(prevouts[inputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN: (inputIndex + 1) * TxUtil.OUTPOINT_LEN]);
+        bool flag = false;
+        if (prevTxId == RabinUtil.getMsgTxId(rabinMsg) && prevTxOutputIndex == RabinUtil.getMsgOutputIndex(rabinMsg)) {
+            flag = true;
+        } 
+        return flag;
+    }
 }

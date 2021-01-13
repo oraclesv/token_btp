@@ -83,7 +83,7 @@ contract Token {
             loop(3) {
                 if (i < nSenders) {
                     // verify the rabin sig
-                    bytes msg = rabinMsgArray[i * RabinUtil.RABIN_MSG_LEN: (i + 1) * RabinUtil.RABIN_MSG_LEN];
+                    bytes msg = rabinMsgArray[i * RabinUtil.TOKEN_RABIN_MSG_LEN: (i + 1) * RabinUtil.TOKEN_RABIN_MSG_LEN];
                     int paddingLen = Util.fromLEUnsigned(paddingArray[paddingPos: paddingPos + RabinUtil.PADDING_SIZE_LEN]);
                     bytes padding = b'';
                     if (paddingLen > 0) {
