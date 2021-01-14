@@ -226,13 +226,18 @@ function verifyOneTokenContract(outputTokenArray, nTokenInputs, nOutputs, nSatos
       indexBuf
     ])
 
+    const scriptHash = bsv.crypto.Hash.sha256ripemd160(token.lockingScript.toBuffer())
     const bufValue = Buffer.alloc(8, 0)
     bufValue.writeBigUInt64LE(BigInt(outputToken1 + i))
+    const satoshiBuf = Buffer.alloc(8, 0)
+    satoshiBuf.writeBigUInt64LE(BigInt(inputSatoshis))
     const msg = Buffer.concat([
-      tokenID,
       txidBuf,
       indexBuf,
+      scriptHash,
+      satoshiBuf,
       bufValue,
+      tokenID,
     ])
     rabinMsgArray = Buffer.concat([rabinMsgArray, msg])
     const rabinSignResult = sign(msg.toString('hex'), rabinPrivateKey.p, rabinPrivateKey.q, rabinPubKey)

@@ -1,7 +1,7 @@
 import "util.scrypt";
 import "tokenProto.scrypt";
 import "txUtil.scrypt";
-import "RabinUtil.scrypt";
+import "rabinUtil.scrypt";
 
 /**
  * A token protocol based on UTXO model

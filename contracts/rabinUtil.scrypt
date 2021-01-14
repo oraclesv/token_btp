@@ -1,5 +1,6 @@
 import "tokenProto.scrypt";
-import "util.script";
+import "util.scrypt";
+import "txUtil.scrypt";
 
 contract RabinUtil {
     // rabin sig length
@@ -21,6 +22,7 @@ contract RabinUtil {
     static int OUTPUT_SATOSHI_OFFSET = RabinUtil.LOCKING_SCRIPT_HASH_OFFSET + RabinUtil.LOCKING_SCRIPT_HASH_LEN;
 
     // token proto part
+    // <tokenAmount(8 bytes)> + <tokenID(20 bytes)>
     static int TOKEN_AMOUNT_OFFSET = RabinUtil.OUTPUT_SATOSHI_OFFSET + RabinUtil.OUTPUT_SATOSHI_LEN;
     static int TOKEN_ID_OFFSET = RabinUtil.TOKEN_AMOUNT_OFFSET + TokenProto.TOKEN_VALUE_LEN;
     static int TOKEN_RABIN_MSG_LEN = RabinUtil.TOKEN_ID_OFFSET + TokenProto.TOKEN_ID_LEN;
@@ -82,7 +84,7 @@ contract RabinUtil {
         bytes prevTxId = prevouts[inputIndex * TxUtil.OUTPOINT_LEN: inputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
         int outputIndex = Util.fromLEUnsigned(prevouts[inputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN: (inputIndex + 1) * TxUtil.OUTPOINT_LEN]);
         bool flag = false;
-        if (prevTxId == RabinUtil.getMsgTxId(rabinMsg) && prevTxOutputIndex == RabinUtil.getMsgOutputIndex(rabinMsg)) {
+        if (prevTxId == RabinUtil.getMsgTxId(rabinMsg) && outputIndex == RabinUtil.getMsgOutputIndex(rabinMsg)) {
             flag = true;
         } 
         return flag;
