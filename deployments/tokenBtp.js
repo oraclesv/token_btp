@@ -179,6 +179,9 @@ function createTokenTransferTx2(tokenTx) {
   for (let i = 0; i < nTokenInput; i++) {
     const lockingScript = tokenTx.outputs[i].script
     const scriptBuf = lockingScript.toBuffer()
+    const scriptHashBuf = bsv.crypto.Hash.sha256ripemd160(scriptBuf)
+    const satoshisBuf = Buffer.alloc(8, 0)
+    satoshisBuf.writeBigUInt64LE(BigInt(tokenTx.outputs[i].satoshis))
     const tokenValue = TokenProto.getTokenValue(scriptBuf)
     const tokenID = TokenProto.getTokenID(scriptBuf)
     const tokenInput = {
@@ -198,10 +201,12 @@ function createTokenTransferTx2(tokenTx) {
     const bufValue = Buffer.alloc(8, 0)
     bufValue.writeBigUInt64LE(BigInt(tokenValue))
     const msg = Buffer.concat([
-      tokenID,
       txidBuf,
       indexBuf,
+      scriptHashBuf,
+      satoshisBuf,
       bufValue,
+      tokenID,
     ])
     rabinMsgArray = Buffer.concat([rabinMsgArray, msg])
     const rabinSignResult = Rabin.sign(msg.toString('hex'), rabinPrivateKey.p, rabinPrivateKey.q, rabinPubKey)

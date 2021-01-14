@@ -27,11 +27,11 @@
   "author": "sCrypt Inc",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "bigint-buffer": "^1.1.5",
     "glob": "^7.1.6",
     "minimist": "^1.2.5",
-    "scryptlib": "0.2.25",
+    "scryptlib": "^0.2.29",
     "watch": "^1.0.2"
   },
   "devDependencies": {

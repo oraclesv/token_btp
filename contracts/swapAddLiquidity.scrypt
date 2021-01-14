@@ -6,9 +6,12 @@ import "merkleTree.scrypt";
 
 //opReturn + "lp address"
 contract SwapAddLiquidity {
+    bytes swapContractID;
     bytes fetchTokenContractHash;
     int[3] rabinPubKeyArray;
     bytes tokenID;
+    int firstSaveBsvAmount;
+    int firstSaveTokenAmount;
 
     /**
      * add liquidity from contract
@@ -20,18 +23,20 @@ contract SwapAddLiquidity {
         int tokenInputIndex,
         bytes tokenLockingScript, // token input locking script 
         bytes tokenRabinMsg,
-        bytes tokenPaddingArray,
-        bytes tokenSigArray,
+        bytes[3] tokenPaddingArray,
+        int[3] tokenSigArray,
         int swapInputIndex,
         bytes swapLockingScript, // swap input locking script
         bytes swapRabinMsg,
-        bytes swapPaddingArray,
-        bytes swapSigArray,
+        bytes[3] swapPaddingArray,
+        int[3] swapSigArray,
         int bsvAddAmount, 
         int senderLpBalance, 
+        bool isNewLeaf,
         bytes lpMerklePath,
+        bytes lastEntry,
         int changeSatoshis,
-        int changeAddress
+        Ripemd160 changeAddress
     ) {
         require(Tx.checkPreimage(txPreimage));
 
@@ -44,11 +49,14 @@ contract SwapAddLiquidity {
 
         int swapInputSatoshis = RabinUtil.getMsgOutputSatoshis(swapRabinMsg);
 
-        // use oralce to verify the merkle root
+        // use oralce to verify the swap contract input
         require(RabinUtil.checkOutputPoint(prevouts, swapInputIndex, swapRabinMsg));
         require(hash160(swapLockingScript) == RabinUtil.getMsgLockingScriptHash(swapRabinMsg));
 
-        int swapVerifyCount = RabinUtil.verifyMsgThree(this.rabinPubKeyArra, swapRabinMsg, swapPaddingArray, swapSigArray);
+        // verify the swap contract ID
+        require(this.swapContractID == RabinUtil.getMsgUniqueID(swapRabinMsg));
+
+        int swapVerifyCount = RabinUtil.verifyMsgThree(this.rabinPubKeyArray, swapRabinMsg, swapPaddingArray, swapSigArray);
         require(swapVerifyCount >= 2);
 
         scriptLen = len(swapLockingScript);
@@ -67,34 +75,40 @@ contract SwapAddLiquidity {
         int tokenInputSatoshis = RabinUtil.getMsgOutputSatoshis(tokenRabinMsg);
         int tokenInputAmount = RabinUtil.getMsgTokenAmount(tokenRabinMsg);
 
-        // TODO: use new merkle tree calculate
-        // check lp merkle tree root
-        bytes senderLpLeaf = sha256(sender + num2bin(senderLpBalance, 8));
-        require(MerkleTree.verifyLeaf(senderLpLeaf, lpMerklePath, lpMerkleRoot));
+        // check lp balance
+        if (isNewLeaf) {
+            require(senderLpBalance == 0);
+        }
 
         int newBsvBalance = swapInputSatoshis + bsvAddAmount;
         int lpMinted = 0;
         // mint the lp token 
         if (swapInputSatoshis > 0) {
-            // check bsvAddAmount and tokenAmount at current ratio
-            require(tokenAmount >= poolTokenAmount * bsvAddAmount / swapInputSatoshis);
-            lpMinted = bsvAddAmount * totalLpBalance / swapInputSatoshis;
+            // check bsvAddAmount and tokenInputAmount at current ratio
+            require(tokenInputAmount >= poolTokenAmount * bsvAddAmount / swapInputSatoshis);
+            lpMinted = bsvAddAmount * totalLpAmount / swapInputSatoshis;
             if (lpMinted == 0) {
                 lpMinted = 1;
             }
         }
         else {
             require(bsvAddAmount == this.firstSaveBsvAmount);
-            require(tokenAmount == this.firstSaveTokenAmount);
+            require(tokenInputAmount == this.firstSaveTokenAmount);
             lpMinted = bsvAddAmount;
         }
-        int newTotalLpBalance = totalLpBalance + lpMinted;
+        int newTotalLpBalance = totalLpAmount + lpMinted;
         int newSenderLpBalance = senderLpBalance + lpMinted;
-        poolTokenAmount = tokenAmount + poolTokenAmount;
+        poolTokenAmount = tokenInputAmount + poolTokenAmount;
         bytes newLpMerkleLeaf = sha256(sender + num2bin(newSenderLpBalance, 8));
 
+        bytes newLpMerkleRoot = b'';
         // count the new lp merkle root
-        bytes newLpMerkleRoot = MerkleTree.calculateMerkleRoot(newLpMerkleLeaf, lpMerklePath);
+        if (isNewLeaf) {
+            newLpMerkleRoot = MerkleTree.addLeafSafe(lastEntry, lpMerklePath, lpMerkleRoot, newLpMerkleLeaf);
+        } else {
+            bytes oldLeaf = sha256(sender + num2bin(senderLpBalance, 8));
+            newLpMerkleRoot = MerkleTree.updateLeaf(oldLeaf, newLpMerkleLeaf, lpMerklePath, lpMerkleRoot);
+        }
 
         // swap contract output
         bytes newSwapScript = SwapUtil.genNewSwapContract(swapLockingScript, newLpMerkleRoot, poolTokenAmount, newTotalLpBalance);

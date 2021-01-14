@@ -1,72 +1,112 @@
 contract MerkleTree {
-    // TODO second preimage attack
-    static function calculateMerkleRoot(bytes leaf, bytes merklePath) : bytes {
-        int i = 0;
-        int merklePathLength = len(merklePath) / 33;
-        require(merklePathLength <= 5);
-        bytes merkleValue = leaf;
-        loop (5) {
-            if (i < merklePathLength) {
-                int left = unpack(merklePath[i * 33 + 32 : i * 33 + 33]);
-                if (left == 2) {
-                    merkleValue = sha256(merkleValue);
-                }
-                else if (left) {
-                    merkleValue = sha256(merkleValue + merklePath[i * 33 : i * 33 + 32]);
-                } else {
-                    merkleValue = sha256(merklePath[i * 33 : i * 33 + 32] + merkleValue);
-                }
-                i = i + 1;
-            }
+  static function calculateMerkleRoot(bytes leaf, bytes merklePath) : bytes {
+    int i = 0;
+    int merklePathLength = len(merklePath) / 33;
+    bytes merkleValue = leaf;
+    loop (20) {
+      if (i < merklePathLength) {
+        int left = unpack(merklePath[i * 33 + 32 : i * 33 + 33]);
+        if (left) {
+          merkleValue = sha256(merkleValue + merklePath[i * 33 : i * 33 + 32]);
+        } else {
+          merkleValue = sha256(merklePath[i * 33 : i * 33 + 32] + merkleValue);
         }
-        return merkleValue;
+        i = i + 1;
+      }
+    }
+    return merkleValue;
+  }
+
+  static function verifyLeaf(bytes leaf, bytes merklePath, bytes merkleRoot) : bool {
+    bytes merkleValue = MerkleTree.calculateMerkleRoot(leaf, merklePath);
+    return merkleValue == merkleRoot;
+  }
+
+  static function updateLeaf(bytes oldLeaf,
+    bytes newLeaf,
+    bytes merklePath,
+    bytes oldMerkleRoot) : bytes {
+
+    int i = 0;
+    int merklePathLength = len(merklePath) / 33;
+    bytes oldMerkleValue = oldLeaf;
+    bytes newMerkleValue = newLeaf;
+
+    loop (20) {
+      if (i < merklePathLength) {
+        int left = unpack(merklePath[i * 33 + 32 : i * 33 + 33]);
+        bytes oldNeighbor = merklePath[i * 33 : i * 33 + 32];
+        bytes newNeighbor = oldNeighbor == oldMerkleValue ? newMerkleValue : oldNeighbor;
+
+        if (left) {
+          oldMerkleValue = sha256(oldMerkleValue + oldNeighbor);
+          newMerkleValue = sha256(newMerkleValue + newNeighbor);
+        } else {
+          oldMerkleValue = sha256(oldNeighbor + oldMerkleValue);
+          newMerkleValue = sha256(newNeighbor + newMerkleValue);
+        }
+        i = i + 1;
+      }
     }
 
-    static function verifyLeaf(bytes leaf, bytes merklePath, bytes merkleRoot) : bool {
-        bytes merkleValue = MerkleTree.calculateMerkleRoot(leaf, merklePath);
-        return merkleValue == merkleRoot;
+    require(oldMerkleValue == oldMerkleRoot);
+
+    return newMerkleValue;
+  }
+
+  static function addLeaf(bytes lastLeaf,
+    bytes lastMerklePath,
+    bytes oldMerkleRoot,
+    bytes newLeaf) : bytes {
+    require(MerkleTree.verifyLeaf(lastLeaf, lastMerklePath, oldMerkleRoot));
+
+    int i = 0;
+    int depth = len(lastMerklePath) / 33;
+    bytes merkleValue = newLeaf;
+    bytes lastLeafValue = lastLeaf;
+    bool joined = false;
+
+    loop (20) {
+      if (i < depth) {
+        bytes sibling = lastMerklePath[i * 33 : i * 33 + 32];
+        int left = unpack(lastMerklePath[i * 33 + 32 : i * 33 + 33]);
+
+        if (left) {
+          if (joined) {
+            require(sibling == merkleValue);
+            merkleValue = sha256(merkleValue + sibling);
+          } else {
+            require(sibling == lastLeafValue);
+            merkleValue = sha256(lastLeafValue + merkleValue);
+          }
+          joined = true;
+        } else {
+          if (joined) {
+            merkleValue = sha256(sibling + merkleValue);
+          } else {
+            merkleValue = sha256(merkleValue + merkleValue);
+            lastLeafValue = sha256(sibling + lastLeafValue);
+          }
+        }
+        i = i + 1;
+      }
     }
 
-    static function verifyTwoLeafPath(
-        bytes leafA, 
-        bytes leafAMerklePath, 
-        bytes leafB, 
-        bytes leafBMerklePath, 
-        bytes mergeMerklePath, 
-        bool leafAIsLeft, 
-        bytes merkleRoot) : bool {
-        bytes leafARoot = MerkleTree.calculateMerkleRoot(leafA, leafAMerklePath);
-
-        bytes leafBRoot = MerkleTree.calculateMerkleRoot(leafB, leafBMerklePath); 
-
-        bytes mergeNode = b'';
-        if (leafAIsLeft) {
-            mergeNode = sha256(leafARoot + leafBRoot);
-        }
-        else {
-            mergeNode = sha256(leafBRoot + leafARoot);
-        }
-        return MerkleTree.verifyLeaf(mergeNode, mergeMerklePath, merkleRoot);
+    if (!joined) {
+      merkleValue = sha256(oldMerkleRoot + merkleValue);
     }
 
-    static function calculateTwoLeafMerkleRoot(
-        bytes leafA, 
-        bytes leafAMerklePath, 
-        bytes leafB, 
-        bytes leafBMerklePath, 
-        bytes mergeMerklePath, 
-        bool leafAIsLeft): bytes {
+    return merkleValue;
+  }
 
-        bytes leafARoot = MerkleTree.calculateMerkleRoot(leafA, leafAMerklePath);
-        bytes leafBRoot = MerkleTree.calculateMerkleRoot(leafB, leafBMerklePath);
-
-        bytes mergeNode = b'';
-        if (leafAIsLeft) {
-            mergeNode = sha256(leafARoot + leafBRoot);
-        }
-        else {
-            mergeNode = sha256(leafBRoot + leafARoot);
-        }
-        return MerkleTree.calculateMerkleRoot(mergeNode, mergeMerklePath); 
-    }
+  /**
+  *  Makes sure that the new leaf is added at the same depth.
+  */
+  static function addLeafSafe(bytes lastEntry,
+    bytes lastMerklePath,
+    bytes oldMerkleRoot,
+    bytes newLeaf) : bytes {
+    bytes lastLeaf = sha256(lastEntry);
+    return MerkleTree.addLeaf(lastLeaf, lastMerklePath, oldMerkleRoot, newLeaf);
+  }
 }

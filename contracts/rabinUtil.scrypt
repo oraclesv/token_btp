@@ -27,6 +27,10 @@ contract RabinUtil {
     static int TOKEN_ID_OFFSET = RabinUtil.TOKEN_AMOUNT_OFFSET + TokenProto.TOKEN_VALUE_LEN;
     static int TOKEN_RABIN_MSG_LEN = RabinUtil.TOKEN_ID_OFFSET + TokenProto.TOKEN_ID_LEN;
 
+    // unique proto part
+    static int UNIQUE_ID_LEN = 20;
+    static int UNIQUE_ID_OFFSET = RabinUtil.OUTPUT_SATOSHI_OFFSET + RabinUtil.OUTPUT_SATOSHI_LEN;
+
     static function rabinHash(bytes x): int {
         // expand into 512 bit hash
         bytes hx = sha256(x);
@@ -58,20 +62,19 @@ contract RabinUtil {
         return msg[RabinUtil.TOKEN_ID_OFFSET: RabinUtil.TOKEN_ID_OFFSET + TokenProto.TOKEN_ID_LEN];
     }
 
-    static function verifyMsgThree(int[3] rabinPubKeyArray, bytes rabinMsg, bytes paddingArray, bytes sigArray): int {
+    static function getMsgUniqueID(bytes msg): bytes {
+        return msg[RabinUtil.UNIQUE_ID_OFFSET: RabinUtil.UNIQUE_ID_OFFSET + RabinUtil.UNIQUE_ID_LEN];
+    }
+
+    static function verifyMsgThree(int[3] rabinPubKeyArray, bytes rabinMsg, bytes[3] paddingArray, int[3] sigArray): int {
         int verifyCount = 0;
         int i = 0;
         int paddingPos = 0;
         loop(3) {
             int rabinPubKey = rabinPubKeyArray[i];
-            int paddingLen = Util.fromLEUnsigned(paddingArray[paddingPos: paddingPos + RabinUtil.PADDING_SIZE_LEN]);
-            bytes padding = b'';
-            if (paddingLen > 0) {
-                padding = paddingArray[paddingPos + RabinUtil.PADDING_SIZE_LEN: paddingPos + RabinUtil.PADDING_SIZE_LEN + paddingLen];
-            }
-            paddingPos = paddingPos + RabinUtil.PADDING_SIZE_LEN + paddingLen;
+            bytes padding = paddingArray[i];
             int h = RabinUtil.rabinHash(rabinMsg + padding);
-            int sig = Util.fromLEUnsigned(sigArray[i * RabinUtil.RABIN_SIG_LEN: (i + 1) * RabinUtil.RABIN_SIG_LEN]);
+            int sig = sigArray[i];
             if ((sig * sig) % rabinPubKey == h % rabinPubKey) {
                 verifyCount = verifyCount + 1;
             }
