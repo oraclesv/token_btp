@@ -1,0 +1,36 @@
+import "txUtil.scrypt";
+import "util.scrypt";
+
+contract SwapFetchToken {
+    bytes swapRemoveLiquidityHash;
+    bytes swapBsvToTokenHash;
+    bytes swapMergeTokenHash;
+
+    public function unlock(
+        SigHashPreimage txPreimage, 
+        int contractInputIndex,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex
+    ) {
+        require(Tx.checkPreimage(txPreimage));
+
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+        // verify the prevScriptTx
+        bytes prevScriptTxId = prevouts[contractInputIndex * TxUtil.OUTPOINT_LEN: contractInputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
+        require(hash256(prevScriptTx) == prevScriptTxId);
+
+        bytes prevScriptCode = TxUtil.readOutputScript(prevScriptTx, prevScriptOutIndex);
+
+        bytes scriptHash = hash160(prevScriptCode);
+
+        bool flag = false;
+        if (scriptHash == this.swapRemoveLiquidityHash || scriptHash == this.swapBsvToTokenHash || scriptHash == this.swapMergeTokenHash) {
+            flag = true;
+        }
+
+        require(flag);
+    }
+}

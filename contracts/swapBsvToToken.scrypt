@@ -1,0 +1,96 @@
+import "util.scrypt";
+import "swapUtil.scrypt";
+import "rabinUtil.scrypt";
+import "txUtil.scrypt";
+
+contract SwapBsvToToken {
+    bytes swapContractID;
+    bytes tokenID;
+    int[3] rabinPubKeyArray;
+    int feeRate;
+
+    public function unlock(
+        SigHashPreimage txPreimage, 
+        bytes prevouts,
+        int tokenInputIndex,
+        bytes tokenLockingScript, // token input locking script 
+        bytes tokenRabinMsg,
+        bytes[3] tokenPaddingArray,
+        int[3] tokenSigArray,
+        int swapInputIndex,
+        bytes swapLockingScript, // swap input locking script
+        bytes swapRabinMsg,
+        bytes[3] swapPaddingArray,
+        int[3] swapSigArray,
+        int bsvInputSatoshis,
+        Ripemd160 tokenOutputAddress,
+        int changeSatoshis,
+        Ripemd160 changeAddress
+    ) {
+        require(Tx.checkPreimage(txPreimage));
+
+        require(bsvInputSatoshis > 0);
+        require(changeSatoshis >= 0);
+
+        // verify swap contract
+        int swapInputSatoshis = RabinUtil.getMsgOutputSatoshis(swapRabinMsg);
+        require(RabinUtil.checkOutputPoint(prevouts, swapInputIndex, swapRabinMsg));
+        require(hash160(swapLockingScript) == RabinUtil.getMsgLockingScriptHash(swapRabinMsg));
+
+        // verify the swap contract ID
+        require(this.swapContractID == RabinUtil.getMsgUniqueID(swapRabinMsg));
+
+        int swapVerifyCount = RabinUtil.verifyMsgThree(this.rabinPubKeyArray, swapRabinMsg, swapPaddingArray, swapSigArray);
+        require(swapVerifyCount >= 2);
+
+        int scriptLen = len(swapLockingScript);
+        bytes lpMerkleRoot = SwapUtil.getLpMerkleRoot(swapLockingScript, scriptLen);
+        int poolTokenAmount = SwapUtil.getTokenAmount(swapLockingScript, scriptLen);
+        int totalLpAmount = SwapUtil.getLpAmount(swapLockingScript, scriptLen);
+
+        // verify token input
+        require(RabinUtil.checkOutputPoint(prevouts, tokenInputIndex, tokenRabinMsg));
+        require(hash160(tokenLockingScript) == RabinUtil.getMsgLockingScriptHash(tokenRabinMsg));
+        require(this.tokenID == RabinUtil.getMsgTokenID(tokenRabinMsg));
+
+        int tokenVerifyCount = RabinUtil.verifyMsgThree(this.rabinPubKeyArray, tokenRabinMsg, tokenPaddingArray, tokenSigArray);
+        require(tokenVerifyCount >= 2);
+
+        int tokenInputSatoshis = RabinUtil.getMsgOutputSatoshis(tokenRabinMsg);
+        int tokenInputAmount = RabinUtil.getMsgTokenAmount(tokenRabinMsg);
+
+        // calculate swap number
+        int bsvInputWithFee = bsvInputSatoshis * (SwapUtil.SWAP_FEE_FACTOR - this.feeRate);
+        int swapTokenAmount = bsvInputWithFee * poolTokenAmount / (swapInputSatoshis * SwapUtil.SWAP_FEE_FACTOR + bsvInputWithFee);
+        int swapOutputSatoshis = swapInputSatoshis + bsvInputSatoshis;
+
+        int newPoolTokenAmount = poolTokenAmount - swapTokenAmount;
+
+        // swap contract output
+        bytes newSwapScript = SwapUtil.genNewSwapContract(swapLockingScript, lpMerkleRoot, newPoolTokenAmount, totalLpAmount);
+        bytes swapOutput = Util.buildOutput(newSwapScript, swapOutputSatoshis);
+
+        // token output
+        int tokenLockingScriptLen = len(tokenLockingScript);
+        bytes newTokenScript = TokenProto.getNewTokenScript(tokenLockingScript, tokenLockingScriptLen, tokenOutputAddress, swapTokenAmount);
+        bytes tokenOutput = Util.buildOutput(newTokenScript, tokenInputSatoshis);
+
+        // change token
+        int leftTokenAmount = tokenInputAmount - swapTokenAmount;
+        bytes tokenChangeOutput = b'';
+        if (leftTokenAmount > 0) {
+            bytes address = TokenProto.getTokenAddress(tokenLockingScript, tokenLockingScriptLen);
+            bytes newTokenScript2 = TokenProto.getNewTokenScript(tokenLockingScript, tokenLockingScriptLen, address, leftTokenAmount);
+            tokenChangeOutput = Util.buildOutput(newTokenScript2, tokenInputSatoshis);
+        }
+
+        bytes changeOutput = b'';
+        if (changeSatoshis > 0) {
+            bytes outputScript = Util.buildPublicKeyHashScript(changeAddress);
+            changeOutput = Util.buildOutput(outputScript, changeSatoshis);
+        }
+        
+        bytes outputs = swapOutput + tokenOutput + tokenChangeOutput + changeOutput;
+        require(hash256(outputs) == Util.hashOutputs(txPreimage));
+    }
+}

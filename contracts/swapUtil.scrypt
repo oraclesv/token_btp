@@ -1,4 +1,6 @@
 contract SwapUtil {
+
+    static int SWAP_FEE_FACTOR = 10000;
     // swap contrac opreturn data:
     // lpMerkleRool + TokenAmount + lpAmount
     static int DATA_OFFSET = 36;

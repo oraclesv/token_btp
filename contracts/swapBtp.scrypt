@@ -2,7 +2,7 @@ import "util.scrypt";
 import "txUtil.scrypt";
 
 // opReturn: tokenBalance + poolBalance + merkleRoot
-contract BtpSwap {
+contract swapBtp {
     bytes addLiquidityContractHash;
     bytes removeLiquidityContractHash;
     bytes swapBsvToTokenContractHash;

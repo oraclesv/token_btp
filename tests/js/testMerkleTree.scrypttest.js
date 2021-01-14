@@ -141,8 +141,7 @@ describe("Test sCrypt contract MerkleTree In Javascript", () => {
       ].join("")
     )
     newLeaf = new Bytes("4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a")
-    newMerkleRoot = new Bytes("cd53a2ce68e6476c29512ea53c395c7f5d8fbcb4614d89298db14e2a5bdb5451")
-    //newMerkleRoot = new Bytes("cd53a2ce68e6476c29512ea53c395c7f5d8fbcb4614d89298db14e2a5bdb5456")
+    newMerkleRoot = new Bytes("cd53a2ce68e6476c29512ea53c395c7f5d8fbcb4614d89298db14e2a5bdb5456")
 
     result = testMerkleTree.testAddLeaf(lastLeaf, lastMerklePath, oldMerkleRoot, newLeaf, newMerkleRoot).verify()
     expect(result.success, result.error).to.be.true

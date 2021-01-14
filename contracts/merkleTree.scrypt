@@ -3,7 +3,7 @@ contract MerkleTree {
     int i = 0;
     int merklePathLength = len(merklePath) / 33;
     bytes merkleValue = leaf;
-    loop (20) {
+    loop (24) {
       if (i < merklePathLength) {
         int left = unpack(merklePath[i * 33 + 32 : i * 33 + 33]);
         if (left) {
@@ -32,7 +32,7 @@ contract MerkleTree {
     bytes oldMerkleValue = oldLeaf;
     bytes newMerkleValue = newLeaf;
 
-    loop (20) {
+    loop (24) {
       if (i < merklePathLength) {
         int left = unpack(merklePath[i * 33 + 32 : i * 33 + 33]);
         bytes oldNeighbor = merklePath[i * 33 : i * 33 + 32];
@@ -66,7 +66,7 @@ contract MerkleTree {
     bytes lastLeafValue = lastLeaf;
     bool joined = false;
 
-    loop (20) {
+    loop (24) {
       if (i < depth) {
         bytes sibling = lastMerklePath[i * 33 : i * 33 + 32];
         int left = unpack(lastMerklePath[i * 33 + 32 : i * 33 + 33]);
