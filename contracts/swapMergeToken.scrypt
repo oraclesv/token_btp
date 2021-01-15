@@ -1,0 +1,66 @@
+import "util.scrypt";
+import "tokenProto.scrypt";
+import "txUtil.scrypt";
+import "rabinUtil.scrypt";
+
+// max support 3 token input merge
+contract SwapMergeToken {
+    int[3] rabinPubKeyArray;
+    bytes tokenID;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        int nTokenInputs,
+        bytes[3] tokenLockingScriptArray,
+        bytes[3] tokenRabinMsgArray,
+        bytes[9] tokenPaddingArray,
+        int[9] tokenSigArray,
+        int changeSatoshis,
+        Ripemd160 changeAddress
+    ) {
+        require(Tx.checkPreimage(txPreimage));
+
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+        int i = 0;
+        require(nTokenInputs <= 3);
+        int sumTokenInputAmount = 0;
+        int tokenInputSatoshis = RabinUtil.getMsgOutputSatoshis(tokenRabinMsgArray[0]);
+        bytes tokenLockingScript = tokenLockingScriptArray[0];
+        bytes tokenInputAddress = TokenProto.getTokenAddress(tokenLockingScript);
+        loop(3) {
+            if (i < nTokenInputs) {
+                // the first one input is this merge contract input tx, token input is after merge contract input
+                bytes tokenRabinMsg = tokenRabinMsgArray[i];
+                require(RabinUtil.checkOutputPoint(prevouts, i + 1, tokenRabinMsg));
+                require(hash160(tokenLockingScriptArray[i]) == RabinUtil.getMsgLockingScriptHash(tokenRabinMsg));
+                // check the token input address is the same
+                if (i != 0) {
+                    require(tokenInputAddress == TokenProto.getTokenAddress(tokenLockingScriptArray[i]));
+                }
+                require(this.tokenID == RabinUtil.getMsgTokenID(tokenRabinMsg));
+
+                int tokenVerifyCount = RabinUtil.verifyMsgThreeOffset(this.rabinPubKeyArray, tokenRabinMsg, tokenPaddingArray, tokenSigArray, i * 3);
+                require(tokenVerifyCount >= 2);
+
+                int tokenInputAmount = RabinUtil.getMsgTokenAmount(tokenRabinMsgArray[0]);
+                sumTokenInputAmount = sumTokenInputAmount + tokenInputAmount;
+            }
+        }
+
+        int tokenLockingScriptLen = len(tokenLockingScript);
+        bytes newTokenScript = TokenProto.getNewTokenScript(tokenLockingScript, tokenLockingScriptLen, tokenInputAddress, sumTokenInputAmount);
+        bytes tokenOutput = Util.buildOutput(newTokenScript, tokenInputSatoshis);
+
+        // bsv change output
+        bytes changeOutput = b'';
+        if (changeSatoshis > 0) {
+            bytes outputScript = Util.buildPublicKeyHashScript(changeAddress);
+            changeOutput = Util.buildOutput(outputScript, changeSatoshis);
+        }
+
+        bytes outputs = tokenOutput + changeOutput;
+        require(hash256(outputs) == Util.hashOutputs(txPreimage));
+    }
+}

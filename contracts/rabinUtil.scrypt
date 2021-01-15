@@ -83,6 +83,23 @@ contract RabinUtil {
         return verifyCount;
     }
 
+    static function verifyMsgThreeOffset(int[3] rabinPubKeyArray, bytes rabinMsg, bytes[9] paddingArray, int[9] sigArray, int arrayOffset): int {
+        int verifyCount = 0;
+        int i = 0;
+        int paddingPos = 0;
+        loop(3) {
+            int rabinPubKey = rabinPubKeyArray[i];
+            bytes padding = paddingArray[i + arrayOffset];
+            int h = RabinUtil.rabinHash(rabinMsg + padding);
+            int sig = sigArray[i + arrayOffset];
+            if ((sig * sig) % rabinPubKey == h % rabinPubKey) {
+                verifyCount = verifyCount + 1;
+            }
+            i = i + 1;
+        }
+        return verifyCount;
+    }
+
     static function checkOutputPoint(bytes prevouts, int inputIndex, bytes rabinMsg): bool {
         bytes prevTxId = prevouts[inputIndex * TxUtil.OUTPOINT_LEN: inputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
         int outputIndex = Util.fromLEUnsigned(prevouts[inputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN: (inputIndex + 1) * TxUtil.OUTPOINT_LEN]);
