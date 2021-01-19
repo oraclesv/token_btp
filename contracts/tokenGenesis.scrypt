@@ -20,6 +20,9 @@ contract tokenGenesis {
         // check sig
         require(checkSig(sig, this.pubKey));
 
+        require(len(this.tokenName) == TokenProto.TOKEN_NAME_LEN);
+        require(len(this.tokenSymbol) == TokenProto.TOKEN_SYMBOL_LEN);
+
         // check input script oracle data
         bytes data = Util.scriptCode(txPreimage);
         int dataLen = len(data);
