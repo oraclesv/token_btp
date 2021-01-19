@@ -49,7 +49,7 @@ const dustLimit = 546
 const tokenName = Buffer.alloc(20, 0)
 tokenName.write('test token name')
 const tokenSymbol = Buffer.alloc(10, 0)
-tokenName.write('ttn')
+tokenSymbol.write('ttn')
 
 const tokenValue = 1000000
 const decimalNum = 8

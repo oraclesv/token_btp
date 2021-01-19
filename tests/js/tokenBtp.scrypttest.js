@@ -51,7 +51,7 @@ const MSB_THRESHOLD = 0x7E
 const tokenName = Buffer.alloc(20, 0)
 tokenName.write('test token name')
 const tokenSymbol = Buffer.alloc(10, 0)
-tokenName.write('ttn')
+tokenSymbol.write('ttn')
 const issuerPubKey = privateKey.publicKey
 const genesisFlag = Buffer.from('01', 'hex')
 const nonGenesisFlag = Buffer.from('00', 'hex')
