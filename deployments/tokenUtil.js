@@ -56,6 +56,7 @@ TokenUtil.getTokenContractHash = function() {
  * @param fee {number} the tx fee
  * @param issuerPubKey {bsv.PublicKey} issuer public key used to unlocking genesis contract
  * @param tokenName {Buffer} the token name
+ * @param tokenSymbol {Buffer} the token symbol
  * @param contractHash {Buffer} the token contract code hash
  * @param genesisAmount {number} the genesis contract utxo output satoshis
  * @param changeAddress {bsv.Address} the change address
@@ -70,6 +71,7 @@ TokenUtil.createGenesis = function(
   fee, 
   issuerPubKey,
   tokenName,
+  tokenSymbol,
   contractHash, 
   genesisAmount,
   changeAddress,
@@ -77,11 +79,12 @@ TokenUtil.createGenesis = function(
   ) {
   const decimalBuf = Buffer.alloc(1, 0)
   decimalBuf.writeUInt8(decimalNum)
-  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum)
+  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(tokenSymbol.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum)
   console.log('genesis create args:', toHex(issuerPubKey), tokenName.toString('hex'), contractHash.toString('hex'), decimalNum)
   const oracleData = Buffer.concat([
     contractHash,
     tokenName,
+    tokenSymbol,
     genesisFlag, 
     decimalBuf,
     Buffer.alloc(20, 0), // address
@@ -157,6 +160,7 @@ TokenUtil.createToken = function(
 
   const scriptBuffer = genesisScript.toBuffer()
   const tokenName = TokenProto.getTokenName(scriptBuffer)
+  const tokenSymbol = TokenProto.getTokenSymbol(scriptBuffer)
 
   const tokenID = Buffer.from(bsv.crypto.Hash.sha256ripemd160(genesisScript.toBuffer()))
 
@@ -167,7 +171,8 @@ TokenUtil.createToken = function(
   const contractHash = TokenProto.getContractHash(scriptBuffer)
   const oracleData = Buffer.concat([
     contractHash,
-    Buffer.from(tokenName),
+    tokenName,
+    tokenSymbol,
     nonGenesisFlag, // genesis flag
     decimalBuf,
     address.hashBuffer, // address
@@ -215,7 +220,6 @@ TokenUtil.createToken = function(
 
   // TODO: get genesis from the script code
   const issuerPubKey = issuerPrivKey.publicKey
-  const genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(Buffer.from(tokenName).toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum)
   console.log('genesis args:', toHex(issuerPubKey), Buffer.from(tokenName).toString('hex'), contractHash.toString('hex'), decimalNum)
   const unlockingScript = genesisContract.unlock(
       new SigHashPreimage(toHex(preimage)),

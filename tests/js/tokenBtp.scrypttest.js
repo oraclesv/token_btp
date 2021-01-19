@@ -48,8 +48,10 @@ const outputToken1 = 100
 // MSB of the sighash  due to lower S policy
 const MSB_THRESHOLD = 0x7E
 
-const tokenName = Buffer.alloc(10, 0)
-tokenName.write('tcc')
+const tokenName = Buffer.alloc(20, 0)
+tokenName.write('test token name')
+const tokenSymbol = Buffer.alloc(10, 0)
+tokenName.write('ttn')
 const issuerPubKey = privateKey.publicKey
 const genesisFlag = Buffer.from('01', 'hex')
 const nonGenesisFlag = Buffer.from('00', 'hex')
@@ -97,6 +99,7 @@ function addInputTokens(nTokenInput, nSatoshiInput) {
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       nonGenesisFlag,
       decimalNum,
       address1.hashBuffer, // contract script hash
@@ -130,16 +133,16 @@ function addInputTokens(nTokenInput, nSatoshiInput) {
 }
 
 function addOutputTokens(nOutputToken, sumInputTokens, changeSatoshi) {
-  console.log('addOutputTokens:', nOutputToken, sumInputTokens, changeSatoshi)
+  //console.log('addOutputTokens:', nOutputToken, sumInputTokens, changeSatoshi)
   let outputTokenArray = []
   for (let i = 0; i < nOutputToken; i++) {
     const bufValue = Buffer.alloc(8, 0)
     if (i == nOutputToken - 1) {
-      console.log('output token', i, sumInputTokens)
+      //console.log('output token', i, sumInputTokens)
       bufValue.writeBigUInt64LE(BigInt(sumInputTokens))
       outputTokenArray.push(sumInputTokens)
     } else {
-      console.log('output token', i, i + 1)
+      //console.log('output token', i, i + 1)
       bufValue.writeBigUInt64LE(BigInt(i + 1))
       sumInputTokens -= i + 1
       outputTokenArray.push(i + 1)
@@ -147,6 +150,7 @@ function addOutputTokens(nOutputToken, sumInputTokens, changeSatoshi) {
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       nonGenesisFlag,
       decimalNum,
       address2.hashBuffer, // contract script hash
@@ -171,7 +175,7 @@ function addOutputTokens(nOutputToken, sumInputTokens, changeSatoshi) {
       script: lockingScript,
       satoshis: changeSatoshi 
     }))
-    console.log('changeSatoshi', changeSatoshi, lockingScript.toBuffer().toString('hex'))
+    //console.log('changeSatoshi', changeSatoshi, lockingScript.toBuffer().toString('hex'))
   }
   return outputTokenArray
 }
@@ -179,14 +183,14 @@ function addOutputTokens(nOutputToken, sumInputTokens, changeSatoshi) {
 function verifyTokenContract(nTokenInputs, nOutputs, expected, nSatoshiInput=0, changeSatoshi=0, outputTokenAdd=0) {
   const sumInputTokens = addInputTokens(nTokenInputs, nSatoshiInput)
   const outputTokenArray = addOutputTokens(nOutputs, sumInputTokens + outputTokenAdd, changeSatoshi)
-  console.log('outputTokenArray:', outputTokenArray)
+  //console.log('outputTokenArray:', outputTokenArray)
   for (let i = 0; i < nTokenInputs; i++) {
     verifyOneTokenContract(outputTokenArray, nTokenInputs, nOutputs, nSatoshiInput, changeSatoshi, i, expected)
   }
 }
 
 function verifyOneTokenContract(outputTokenArray, nTokenInputs, nOutputs, nSatoshiInput, changeSatoshi, inputIndex, expected) {
-  console.log('verifyOneTokenContract:', inputIndex, expected)
+  //console.log('verifyOneTokenContract:', inputIndex, expected)
   const sigtype = bsv.crypto.Signature.SIGHASH_ALL | bsv.crypto.Signature.SIGHASH_FORKID
   const token = tokenInstance[inputIndex]
   const preimage = getPreimage(tx, token.lockingScript.toASM(), inputSatoshis, inputIndex=inputIndex, sighashType=sigtype)
@@ -241,7 +245,7 @@ function verifyOneTokenContract(outputTokenArray, nTokenInputs, nOutputs, nSatos
     ])
     rabinMsgArray = Buffer.concat([rabinMsgArray, msg])
     const rabinSignResult = sign(msg.toString('hex'), rabinPrivateKey.p, rabinPrivateKey.q, rabinPubKey)
-    console.log('rabinsignature:', msg.toString('hex'), rabinSignResult.paddingByteCount, rabinSignResult.signature)
+    //console.log('rabinsignature:', msg.toString('hex'), rabinSignResult.paddingByteCount, rabinSignResult.signature)
     const sigBuf = toBufferLE(rabinSignResult.signature, 128)
     rabinSignArray = Buffer.concat([rabinSignArray, sigBuf])
     const paddingCountBuf = Buffer.alloc(2, 0)
@@ -326,6 +330,7 @@ function unlockFromContract(scriptHash=null) {
   const oracleData = Buffer.concat([
     contractHash,
     tokenName,
+    tokenSymbol,
     nonGenesisFlag,
     decimalNum,
     scriptHash, // contract script hash
@@ -386,7 +391,7 @@ describe('Test token contract unlock In Javascript', () => {
   it('should succeed with multi input and output', () => {
     for (let i = 1; i <= 3; i++) {
       for (let j = 1; j <= 3; j++) {
-        console.log("verify token contract:", i, j)
+        //console.log("verify token contract:", i, j)
         verifyTokenContract(i, j, true, 0, 0)
       }
     }
@@ -395,7 +400,7 @@ describe('Test token contract unlock In Javascript', () => {
   it('should succeed with bsv input', () => {
     for (let i = 1; i <= 3; i++) {
       for (let j = 1; j <= 3; j++) {
-        console.log("verify token contract:", i, j)
+        //console.log("verify token contract:", i, j)
         verifyTokenContract(i, j, true, 2, 1000)
       }
     }

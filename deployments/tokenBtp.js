@@ -46,8 +46,10 @@ const bsvBalance3 = 578454
 
 const dustLimit = 546
 
-const tokenName = Buffer.alloc(10, 0)
-tokenName.write('tcc')
+const tokenName = Buffer.alloc(20, 0)
+tokenName.write('test token name')
+const tokenSymbol = Buffer.alloc(10, 0)
+tokenName.write('ttn')
 
 const tokenValue = 1000000
 const decimalNum = 8
@@ -61,7 +63,7 @@ async function createNewToken() {
   let outAmount1 = dustLimit + 10000
   let fee = 5000
   const contractHash = TokenUtil.getTokenContractHash()
-  let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, contractHash, outAmount1, address1, decimalNum)
+  let genesisTx = TokenUtil.createGenesis(utxo1, outIndex1, bsv.Script.buildPublicKeyHashOut(address1), bsvBalance1, privateKey, fee, privateKey.publicKey, tokenName, tokenSymbol, contractHash, outAmount1, address1, decimalNum)
 
   //console.log('createGenesisTx:', genesisTx.id, genesisTx.serialize())
   //await sendTx(genesisTx)

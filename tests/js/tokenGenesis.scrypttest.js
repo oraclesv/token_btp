@@ -29,8 +29,10 @@ const MSB_THRESHOLD = 0x7E
 let tx
 const outputAmount = 222222
 
-const tokenName = Buffer.alloc(10, 0)
-tokenName.write('tcc')
+const tokenName = Buffer.alloc(20, 0)
+tokenName.write('test token name')
+const tokenSymbol = Buffer.alloc(10, 0)
+tokenSymbol.write('ttn')
 const issuerPubKey = privateKey.publicKey
 const genesisFlag = Buffer.from('01', 'hex')
 const nonGenesisFlag = Buffer.from('00', 'hex')
@@ -85,6 +87,24 @@ function createToken(oracleData) {
   return result
 }
 
+function getOracleData(address, tokenAmount) {
+  tokenAmountBuf = Buffer.alloc(8, 0)
+  tokenAmountBuf.writeBigUInt64LE(BigInt(tokenAmount))
+  const oracleData = Buffer.concat([
+    contractHash,
+    tokenName,
+    tokenSymbol,
+    genesisFlag, 
+    decimalNum,
+    address,
+    tokenAmountBuf,
+    tokenID,
+    tokenType, // type
+    PROTO_FLAG
+  ])
+  return oracleData
+}
+
 describe('Test genesis contract unlock In Javascript', () => {
 
   beforeEach(() => {
@@ -94,11 +114,12 @@ describe('Test genesis contract unlock In Javascript', () => {
     const lockingScript = token.lockingScript.toBuffer()
     const contractCode = TokenProto.getContractCode(lockingScript)
     contractHash = bsv.crypto.Hash.sha256ripemd160(contractCode)
-    genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum.readUInt8())
+    genesis = new Genesis(new PubKey(toHex(issuerPubKey)), new Bytes(tokenName.toString('hex')), new Bytes(tokenSymbol.toString('hex')), new Bytes(contractHash.toString('hex')), decimalNum.readUInt8())
     console.log('contract hash:', contractHash.toString('hex'))
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       genesisFlag, 
       decimalNum,
       Buffer.alloc(20, 0), // address
@@ -122,17 +143,7 @@ describe('Test genesis contract unlock In Javascript', () => {
   });
 
   it('should succeed', () => {
-    const oracleData = Buffer.concat([
-      contractHash,
-      tokenName,
-      nonGenesisFlag, 
-      decimalNum,
-      address1.hashBuffer, // address
-      buffValue, // token value
-      tokenID, // script code hash
-      tokenType, // type
-      PROTO_FLAG
-    ])
+    const oracleData = getOracleData(address1.hashBuffer, tokenValue)
     const result = createToken(oracleData)
     expect(result.success, result.error).to.be.true
   });
@@ -141,6 +152,7 @@ describe('Test genesis contract unlock In Javascript', () => {
     const oracleData = Buffer.concat([
       Buffer.alloc(contractHash.length, 0),
       tokenName,
+      tokenSymbol,
       nonGenesisFlag, 
       decimalNum,
       address1.hashBuffer, // address
@@ -153,10 +165,11 @@ describe('Test genesis contract unlock In Javascript', () => {
     expect(result.success, result.error).to.be.false
   });
 
-  it('should succeed when get wrong tokenName', () => {
+  it('should failed when get wrong tokenName', () => {
     const oracleData = Buffer.concat([
       contractHash,
       Buffer.alloc(tokenName.length, 0),
+      tokenSymbol,
       nonGenesisFlag, 
       decimalNum,
       address1.hashBuffer, // address
@@ -168,10 +181,29 @@ describe('Test genesis contract unlock In Javascript', () => {
     const result = createToken(oracleData)
     expect(result.success, result.error).to.be.false
   });
+
+  it('should failed when get wrong tokenSymbol', () => {
+    const oracleData = Buffer.concat([
+      contractHash,
+      tokenName,
+      Buffer.alloc(tokenSymbol.length, 0),
+      nonGenesisFlag, 
+      decimalNum,
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      tokenType, // type
+      PROTO_FLAG
+    ])
+    const result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+  });
+
   it('should failed when get wrong genesis flag', () => {
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       genesisFlag, 
       decimalNum,
       address1.hashBuffer, // address
@@ -187,6 +219,7 @@ describe('Test genesis contract unlock In Javascript', () => {
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       nonGenesisFlag, 
       decimalNum,
       address1.hashBuffer, // address
@@ -202,6 +235,7 @@ describe('Test genesis contract unlock In Javascript', () => {
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       nonGenesisFlag, 
       decimalNum,
       address1.hashBuffer, // address
@@ -217,6 +251,7 @@ describe('Test genesis contract unlock In Javascript', () => {
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       nonGenesisFlag, 
       decimalNum,
       address1.hashBuffer, // address
@@ -232,6 +267,7 @@ describe('Test genesis contract unlock In Javascript', () => {
     const oracleData = Buffer.concat([
       contractHash,
       tokenName,
+      tokenSymbol,
       nonGenesisFlag, 
       Buffer.from('01', 'hex'),
       address1.hashBuffer, // address

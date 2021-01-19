@@ -4,6 +4,7 @@ import "tokenProto.scrypt";
 contract tokenGenesis {
     PubKey pubKey;
     bytes tokenName;
+    bytes tokenSymbol;
     bytes contractHash;
     int decimalNum;
 
@@ -24,6 +25,8 @@ contract tokenGenesis {
         int dataLen = len(data);
         bytes tokenName = TokenProto.getTokenName(data, dataLen);
         require(tokenName == this.tokenName);
+        bytes tokenSymbol = TokenProto.getTokenSymbol(data, dataLen);
+        require(tokenSymbol == this.tokenSymbol);
         int isGenesis = TokenProto.getGenesisFlag(data, dataLen);
         require(isGenesis == 1);
         int decimalNum = TokenProto.getDecimalNum(data, dataLen);
@@ -54,10 +57,12 @@ contract tokenGenesis {
         require(contractHash2 == this.contractHash);
         tokenName = TokenProto.getTokenName(outputScript, dataLen);
         require(tokenName == this.tokenName);
+        tokenSymbol = TokenProto.getTokenSymbol(outputScript, dataLen);
+        require(tokenSymbol == this.tokenSymbol);
         isGenesis = TokenProto.getGenesisFlag(outputScript, dataLen);
+        require(isGenesis == 0);
         decimalNum = TokenProto.getDecimalNum(outputScript, dataLen);
         require(decimalNum == this.decimalNum);
-        require(isGenesis == 0);
         tokenID = TokenProto.getTokenID(outputScript, dataLen);
         require(tokenID == genesisHash);
         protoType = TokenProto.getProtoType(outputScript, dataLen);

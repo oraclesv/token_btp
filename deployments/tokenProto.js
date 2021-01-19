@@ -3,13 +3,14 @@ const proto = require('./protoheader')
 const token = module.exports
 
 // token specific
-//<type specific data> = <contract hash(20 bytes)> + <token_name (10 bytes)> <is_genesis(1 byte)> + <decimal_num(1 byte)> + <public key hash(20 bytes)> + <token value(8 bytes)> + <genesis script code hash as tokenid(20 bytes)> + <proto header>
+//<type specific data> = <contract hash(20 bytes)> + <token_name (20 bytes)> + <token_symbol (10 bytes)> <is_genesis(1 byte)> + <decimal_num(1 byte)> + <public key hash(20 bytes)> + <token value(8 bytes)> + <genesis script code hash as tokenid(20 bytes)> + <proto header>
 const TOKEN_ID_LEN = 20
 const TOKEN_VALUE_LEN = 8
 const TOKEN_ADDRESS_LEN = 20
 const DECIMAL_NUM_LEN = 1
 const GENESIS_FLAG_LEN = 1
-const TOKEN_NAME_LEN = 10
+const TOKEN_SYMBOL_LEN = 10
+const TOKEN_NAME_LEN = 20
 const CONTRACT_HASH_LEN = 20
 
 const TOKEN_ID_OFFSET = TOKEN_ID_LEN + proto.getHeaderLen()
@@ -17,7 +18,8 @@ const TOKEN_VALUE_OFFSET = TOKEN_ID_OFFSET + TOKEN_VALUE_LEN
 const TOKEN_ADDRESS_OFFSET = TOKEN_VALUE_OFFSET + TOKEN_ADDRESS_LEN
 const DECIMAL_NUM_OFFSET = TOKEN_ADDRESS_OFFSET + DECIMAL_NUM_LEN
 const GENESIS_FLAG_OFFSET = DECIMAL_NUM_OFFSET + GENESIS_FLAG_LEN
-const TOKEN_NAME_OFFSET = GENESIS_FLAG_OFFSET + TOKEN_NAME_LEN 
+const TOKEN_SYMBOL_OFFSET = GENESIS_FLAG_OFFSET + TOKEN_SYMBOL_LEN
+const TOKEN_NAME_OFFSET = TOKEN_SYMBOL_OFFSET + TOKEN_NAME_LEN 
 const CONTRACT_HASH_OFFSET = TOKEN_NAME_OFFSET + CONTRACT_HASH_LEN
 
 const TOKEN_HEADER_LEN = CONTRACT_HASH_OFFSET
@@ -53,6 +55,10 @@ token.getGenesisFlag = function(script) {
 }
 
 token.getTokenName = function(script) {
+  return script.subarray(script.length - TOKEN_SYMBOL_OFFSET, script.length - TOKEN_SYMBOL_OFFSET + TOKEN_SYMBOL_LEN).toString()
+}
+
+token.getTokenName = function(script) {
   return script.subarray(script.length - TOKEN_NAME_OFFSET, script.length - TOKEN_NAME_OFFSET + TOKEN_NAME_LEN).toString()
 }
 
@@ -62,10 +68,6 @@ token.getContractHash = function(script) {
 
 token.getContractCode = function(script) {
   return script.subarray(0, script.length - TOKEN_HEADER_LEN)
-}
-
-token.getOracleData = function(script) {
-  return script.subarray(script.length - TOKEN_HEADER_LEN, script.length)
 }
 
 token.getNewTokenScript = function(script, address, tokenAmount) {
