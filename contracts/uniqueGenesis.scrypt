@@ -1,0 +1,30 @@
+import "util.scrypt";
+import "txUtil.scrypt";
+
+contract UniqueGenesis {
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        bytes prevouts,
+        bytes outputScript,
+        int outputSatoshis
+    ) {
+        require(Tx.checkPreimageOpt(txPreimage));
+
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+        bytes uniqueID = prevouts[0: TxUtil.OUTPOINT_LEN];
+        
+        // check the output script
+        require(uniqueID == UniqueProto.getUniqueID(outputScript));
+        require(UniqueProto.getGenesisFlag(outputScript) == 0);
+        require(UniqueProto.getProtoType(outputScript, dataLen) == UniqueProto.PROTO_TYPE);
+        // flag == 'oraclesv'
+        flag = UniqueProto.getProtoFlag(outputScript, dataLen);
+        require(flag == UniqueProto.Proto_FLAG);
+
+        bytes output = Util.buildOutput(outputScript, outputSatoshis);
+        require(hash256(output) == Util.hashOutputs(txPreimage));
+    }
+}

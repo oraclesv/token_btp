@@ -38,10 +38,10 @@ contract tokenGenesis {
         bytes tokenID = TokenProto.getTokenID(data, dataLen);
         require(tokenID == b'0000000000000000000000000000000000000000');
         int protoType = TokenProto.getProtoType(data, dataLen);
-        require(protoType ==  1);
+        require(protoType == TokenProto.PROTO_TYPE);
         // flag == 'oraclesv'
         bytes flag = TokenProto.getProtoFlag(data, dataLen);
-        require(flag == b'6f7261636c657376');
+        require(flag == TokenProto.PROTO_FLAG);
 
         bytes genesisHash = hash160(data);
 
@@ -66,10 +66,10 @@ contract tokenGenesis {
         tokenID = TokenProto.getTokenID(outputScript, dataLen);
         require(tokenID == genesisHash);
         protoType = TokenProto.getProtoType(outputScript, dataLen);
-        require(protoType ==  1);
+        require(protoType == TokenProto.PROTO_TYPE);
         // flag == 'oraclesv'
         flag = TokenProto.getProtoFlag(outputScript, dataLen);
-        require(flag == b'6f7261636c657376');
+        require(flag == TokenProto.PROTO_FLAG);
 
         bytes output = Util.buildOutput(outputScript, outputSatoshi);
         bytes hashOutput = hash256(output);

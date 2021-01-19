@@ -31,6 +31,9 @@ contract SwapRemoveLiquidity {
     ) {
         require(Tx.checkPreimage(txPreimage));
 
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
         // check sender sig
         require(checkSig(senderSig, senderPubKey));
 

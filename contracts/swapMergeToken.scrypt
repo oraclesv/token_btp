@@ -28,7 +28,8 @@ contract SwapMergeToken {
         int sumTokenInputAmount = 0;
         int tokenInputSatoshis = RabinUtil.getMsgOutputSatoshis(tokenRabinMsgArray[0]);
         bytes tokenLockingScript = tokenLockingScriptArray[0];
-        bytes tokenInputAddress = TokenProto.getTokenAddress(tokenLockingScript);
+        int tokenLockingScriptLen = len(tokenLockingScript);
+        bytes tokenInputAddress = TokenProto.getTokenAddress(tokenLockingScript, tokenLockingScriptLen);
         loop(3) {
             if (i < nTokenInputs) {
                 // the first one input is this merge contract input tx, token input is after merge contract input
@@ -37,7 +38,7 @@ contract SwapMergeToken {
                 require(hash160(tokenLockingScriptArray[i]) == RabinUtil.getMsgLockingScriptHash(tokenRabinMsg));
                 // check the token input address is the same
                 if (i != 0) {
-                    require(tokenInputAddress == TokenProto.getTokenAddress(tokenLockingScriptArray[i]));
+                    require(tokenInputAddress == TokenProto.getTokenAddress(tokenLockingScriptArray[i], len(tokenLockingScriptArray[i])));
                 }
                 require(this.tokenID == RabinUtil.getMsgTokenID(tokenRabinMsg));
 
@@ -49,7 +50,6 @@ contract SwapMergeToken {
             }
         }
 
-        int tokenLockingScriptLen = len(tokenLockingScript);
         bytes newTokenScript = TokenProto.getNewTokenScript(tokenLockingScript, tokenLockingScriptLen, tokenInputAddress, sumTokenInputAmount);
         bytes tokenOutput = Util.buildOutput(newTokenScript, tokenInputSatoshis);
 

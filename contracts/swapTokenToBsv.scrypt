@@ -28,6 +28,10 @@ contract SwapTokenToBsv {
         Ripemd160 changeAddress
     ) {
         require(Tx.checkPreimage(txPreimage));
+
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
         require(changeSatoshis >= 0);
         require(bsvSwapSatoshis >= 0);
 

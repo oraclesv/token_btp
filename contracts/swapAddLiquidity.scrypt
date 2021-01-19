@@ -40,6 +40,9 @@ contract SwapAddLiquidity {
     ) {
         require(Tx.checkPreimage(txPreimage));
 
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
         require(bsvAddAmount > 0);
 
         // get the sender lpAccount

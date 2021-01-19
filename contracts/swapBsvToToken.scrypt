@@ -29,6 +29,9 @@ contract SwapBsvToToken {
     ) {
         require(Tx.checkPreimage(txPreimage));
 
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
         require(bsvInputSatoshis > 0);
         require(changeSatoshis >= 0);
 
