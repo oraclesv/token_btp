@@ -171,8 +171,8 @@ TokenUtil.createToken = function(
   const contractHash = TokenProto.getContractHash(scriptBuffer)
   const oracleData = Buffer.concat([
     contractHash,
-    tokenName,
-    tokenSymbol,
+    Buffer.from(tokenName),
+    Buffer.from(tokenSymbol),
     nonGenesisFlag, // genesis flag
     decimalBuf,
     address.hashBuffer, // address

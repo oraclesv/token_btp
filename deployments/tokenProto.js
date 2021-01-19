@@ -54,7 +54,7 @@ token.getGenesisFlag = function(script) {
     return script.readUIntLE(script.length - GENESIS_FLAG_OFFSET, GENESIS_FLAG_LEN)
 }
 
-token.getTokenName = function(script) {
+token.getTokenSymbol = function(script) {
   return script.subarray(script.length - TOKEN_SYMBOL_OFFSET, script.length - TOKEN_SYMBOL_OFFSET + TOKEN_SYMBOL_LEN).toString()
 }
 
