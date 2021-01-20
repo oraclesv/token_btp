@@ -87,24 +87,6 @@ function createToken(oracleData) {
   return result
 }
 
-function getOracleData(address, tokenAmount) {
-  tokenAmountBuf = Buffer.alloc(8, 0)
-  tokenAmountBuf.writeBigUInt64LE(BigInt(tokenAmount))
-  const oracleData = Buffer.concat([
-    contractHash,
-    tokenName,
-    tokenSymbol,
-    genesisFlag, 
-    decimalNum,
-    address,
-    tokenAmountBuf,
-    tokenID,
-    tokenType, // type
-    PROTO_FLAG
-  ])
-  return oracleData
-}
-
 describe('Test genesis contract unlock In Javascript', () => {
 
   beforeEach(() => {
@@ -143,7 +125,18 @@ describe('Test genesis contract unlock In Javascript', () => {
   });
 
   it('should succeed', () => {
-    const oracleData = getOracleData(address1.hashBuffer, tokenValue)
+    const oracleData = Buffer.concat([
+      contractHash,
+      tokenName,
+      tokenSymbol,
+      nonGenesisFlag, 
+      decimalNum,
+      address1.hashBuffer,
+      buffValue,
+      tokenID,
+      tokenType, // type
+      PROTO_FLAG
+    ])
     const result = createToken(oracleData)
     expect(result.success, result.error).to.be.true
   });
@@ -178,7 +171,22 @@ describe('Test genesis contract unlock In Javascript', () => {
       tokenType, // type
       PROTO_FLAG
     ])
-    const result = createToken(oracleData)
+    let result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+
+    const oracleData2 = Buffer.concat([
+      contractHash,
+      tokenName.subarray(0, tokenName.length - 2),
+      tokenSymbol,
+      nonGenesisFlag, 
+      decimalNum,
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      tokenType, // type
+      PROTO_FLAG
+    ])
+    result = createToken(oracleData2)
     expect(result.success, result.error).to.be.false
   });
 
@@ -195,7 +203,23 @@ describe('Test genesis contract unlock In Javascript', () => {
       tokenType, // type
       PROTO_FLAG
     ])
-    const result = createToken(oracleData)
+    let result = createToken(oracleData)
+    expect(result.success, result.error).to.be.false
+
+    // wrong token symbol length
+    const oracleData2 = Buffer.concat([
+      contractHash,
+      tokenName,
+      tokenSymbol.subarray(0, tokenSymbol.length - 2),
+      nonGenesisFlag, 
+      decimalNum,
+      address1.hashBuffer, // address
+      buffValue, // token value
+      tokenID, // script code hash
+      tokenType, // type
+      PROTO_FLAG
+    ])
+    result = createToken(oracleData2)
     expect(result.success, result.error).to.be.false
   });
 
@@ -215,6 +239,7 @@ describe('Test genesis contract unlock In Javascript', () => {
     const result = createToken(oracleData)
     expect(result.success, result.error).to.be.false
   });
+
   it('should failed when get wrong tokenID', () => {
     const oracleData = Buffer.concat([
       contractHash,
