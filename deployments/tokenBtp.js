@@ -184,7 +184,7 @@ function createTokenTransferTx2(tokenTx) {
     const scriptHashBuf = bsv.crypto.Hash.sha256ripemd160(scriptBuf)
     const satoshisBuf = Buffer.alloc(8, 0)
     satoshisBuf.writeBigUInt64LE(BigInt(tokenTx.outputs[i].satoshis))
-    const tokenValue = TokenProto.getTokenValue(scriptBuf)
+    const tokenValue = TokenProto.getTokenAmount(scriptBuf)
     const tokenID = TokenProto.getTokenID(scriptBuf)
     const tokenInput = {
       lockingScript: lockingScript,

@@ -3,7 +3,7 @@ const proto = require('./protoheader')
 const token = module.exports
 
 // token specific
-//<type specific data> = <contract hash(20 bytes)> + <token_name (20 bytes)> + <token_symbol (10 bytes)> <is_genesis(1 byte)> + <decimal_num(1 byte)> + <public key hash(20 bytes)> + <token value(8 bytes)> + <genesis script code hash as tokenid(20 bytes)> + <proto header>
+//<type specific data> = <contract hash(20 bytes)> + <token_name (10 bytes)> <is_genesis(1 byte)> + <decimal_num(1 byte)> + <public key hash(20 bytes)> + <token value(8 bytes)> + <genesis script code hash as tokenid(20 bytes)> + <proto header>
 const TOKEN_ID_LEN = 20
 const TOKEN_VALUE_LEN = 8
 const TOKEN_ADDRESS_LEN = 20
@@ -34,7 +34,7 @@ token.getHeaderLen = function() {
   return TOKEN_HEADER_LEN
 }
 
-token.getTokenValue = function(script) {
+token.getTokenAmount = function(script) {
   return script.readBigUInt64LE(script.length - TOKEN_VALUE_OFFSET)
 }
 
@@ -55,11 +55,11 @@ token.getGenesisFlag = function(script) {
 }
 
 token.getTokenSymbol = function(script) {
-  return script.subarray(script.length - TOKEN_SYMBOL_OFFSET, script.length - TOKEN_SYMBOL_OFFSET + TOKEN_SYMBOL_LEN).toString()
+  return script.subarray(script.length - TOKEN_SYMBOL_OFFSET, script.length - TOKEN_SYMBOL_OFFSET + TOKEN_SYMBOL_LEN)
 }
 
 token.getTokenName = function(script) {
-  return script.subarray(script.length - TOKEN_NAME_OFFSET, script.length - TOKEN_NAME_OFFSET + TOKEN_NAME_LEN).toString()
+  return script.subarray(script.length - TOKEN_NAME_OFFSET, script.length - TOKEN_NAME_OFFSET + TOKEN_NAME_LEN)
 }
 
 token.getContractHash = function(script) {
@@ -70,16 +70,37 @@ token.getContractCode = function(script) {
   return script.subarray(0, script.length - TOKEN_HEADER_LEN)
 }
 
-token.getNewTokenScript = function(script, address, tokenAmount) {
-  const scriptBuf = Buffer.from(script.toHex(), 'hex')
+token.getOracleData = function(script) {
+  return script.subarray(script.length - TOKEN_HEADER_LEN, script.length)
+}
+
+token.getNewTokenScript = function(scriptBuf, address, tokenAmount) {
   const amountBuf = Buffer.alloc(8, 0)
   amountBuf.writeBigUInt64LE(BigInt(tokenAmount))
   const firstBuf = scriptBuf.subarray(0, scriptBuf.length - TOKEN_ADDRESS_OFFSET)
   const newScript = Buffer.concat([
     firstBuf,
-    address.hashBuffer,
+    address,
     amountBuf,
     scriptBuf.subarray(scriptBuf.length - TOKEN_ID_OFFSET, scriptBuf.length)
+  ])
+  return newScript
+}
+
+token.getNewTokenScriptFromGenesis = function(scriptBuf, addressBuf, tokenAmount, tokenID) {
+  const amountBuf = Buffer.alloc(8, 0)
+  amountBuf.writeBigUInt64LE(BigInt(tokenAmount))
+  const genesisFlag = Buffer.alloc(GENESIS_FLAG_LEN, 0)
+  const decimalBuf = scriptBuf.subarray(scriptBuf.length - DECIMAL_NUM_OFFSET, scriptBuf.length - DECIMAL_NUM_OFFSET + DECIMAL_NUM_LEN)
+  const firstBuf = scriptBuf.subarray(0, scriptBuf.length - GENESIS_FLAG_OFFSET)
+  const newScript = Buffer.concat([
+    firstBuf,
+    genesisFlag,
+    decimalBuf,
+    addressBuf,
+    amountBuf,
+    tokenID,
+    scriptBuf.subarray(scriptBuf.length - proto.getHeaderLen(), scriptBuf.length)
   ])
   return newScript
 }

@@ -171,8 +171,8 @@ TokenUtil.createToken = function(
   const contractHash = TokenProto.getContractHash(scriptBuffer)
   const oracleData = Buffer.concat([
     contractHash,
-    Buffer.from(tokenName),
-    Buffer.from(tokenSymbol),
+    tokenName,
+    tokenSymbol,
     nonGenesisFlag, // genesis flag
     decimalBuf,
     address.hashBuffer, // address
@@ -217,10 +217,11 @@ TokenUtil.createToken = function(
   }
   //console.log("preimage args:", inputAmount, genesisTxOutputIndex, sigtype, genesisScript.toBuffer().toString('hex'))
   const sig = signTx(tx, issuerPrivKey, genesisScript.toASM(), inputAmount, inputIndex=genesisTxOutputIndex, sighashType=sigtype)
+  //console.log('createToken: sig ', new bsv.crypto.Signature.fromTxFormat(sig))
 
   // TODO: get genesis from the script code
   const issuerPubKey = issuerPrivKey.publicKey
-  console.log('genesis args:', toHex(issuerPubKey), Buffer.from(tokenName).toString('hex'), contractHash.toString('hex'), decimalNum)
+  console.log('genesis args:', toHex(issuerPubKey), tokenName.toString('hex'), contractHash.toString('hex'), decimalNum)
   const unlockingScript = genesisContract.unlock(
       new SigHashPreimage(toHex(preimage)),
       new Sig(toHex(sig)),
@@ -336,7 +337,7 @@ TokenUtil.createTokenTransfer = function(
     const address = tokenOutput.address
     const outputTokenAmount = tokenOutput.tokenAmount
     const outputSatoshis = tokenOutput.satoshis
-    const lockingScriptBuf = TokenProto.getNewTokenScript(inputTokenScript, address, outputTokenAmount) 
+    const lockingScriptBuf = TokenProto.getNewTokenScript(inputTokenScript.toBuffer(), address.hashBuffer, outputTokenAmount) 
     tx.addOutput(new bsv.Transaction.Output({
         script: bsv.Script.fromBuffer(lockingScriptBuf),
         satoshis: outputSatoshis,
