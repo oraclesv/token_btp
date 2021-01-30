@@ -1,4 +1,4 @@
-contract SwapUtil {
+library SwapUtil {
 
     static int SWAP_FEE_FACTOR = 10000;
     // swap contrac opreturn data:
