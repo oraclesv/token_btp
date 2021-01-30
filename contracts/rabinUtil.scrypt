@@ -2,7 +2,7 @@ import "tokenProto.scrypt";
 import "util.scrypt";
 import "txUtil.scrypt";
 
-contract RabinUtil {
+library RabinUtil {
     // rabin sig length
     static int RABIN_SIG_LEN = 128;
     static int PADDING_SIZE_LEN = 2;

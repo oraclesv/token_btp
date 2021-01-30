@@ -1,6 +1,6 @@
 import "util.scrypt";
 
-contract TokenProto {
+library TokenProto {
 
     // flag is oraclesv
     static bytes PROTO_FLAG = b'6f7261636c657376';

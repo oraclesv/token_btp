@@ -1,4 +1,5 @@
-contract UniqueProto {
+
+library UniqueProto {
 
     // flag is oraclesv
     static bytes PROTO_FLAG = b'6f7261636c657376';
@@ -9,20 +10,21 @@ contract UniqueProto {
     static int UNIQUE_ID_LEN = 36;
     static int GENESIS_FLAG_LEN = 1;
     static int CUSTOM_DATA_SIZE_LEN = 4;
+    static int UNIQUE_ID_OFFSET = 0;/* fixme */
 
     static function getUniqueID(bytes script, int slen): bytes {
-        return script[slen - UniqueProto.UNIQUE_ID_OFFSET, slen - UniqueProto.UNIQUE_ID_OFFSET + UniqueProto.UNIQUE_ID_LEN]
+        return script[slen - UniqueProto.UNIQUE_ID_OFFSET: slen - UniqueProto.UNIQUE_ID_OFFSET + UniqueProto.UNIQUE_ID_LEN];
     }
 
     static function getGenesisFlag(bytes script, int slen): int {
-
+        return 1;/* fixme */
     }
 
     static function getProtoType(bytes script, int slen): int {
-
+        return 1;/* fixme */
     }
 
-    static function getProtoFlag(script): bytes {
-
+    static function getProtoFlag(bytes script): bytes {
+        return script;/* fixme */
     }
 }

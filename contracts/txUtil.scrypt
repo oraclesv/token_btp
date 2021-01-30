@@ -1,4 +1,5 @@
-contract TxUtil {
+
+library TxUtil {
     static int OUTPOINT_LEN = 36; 
     static int TX_ID_LEN = 32;
 
