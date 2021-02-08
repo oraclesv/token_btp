@@ -76,7 +76,7 @@ tokenID.write('testtokenid')
 let contractHash
 let tokenInstance = []
 
-const maxInputLimit = 9
+const maxInputLimit = 8
 const maxOutputLimit = 4
 
 const decimalNum = Buffer.from('08', 'hex')

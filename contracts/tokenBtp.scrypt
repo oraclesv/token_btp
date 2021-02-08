@@ -76,11 +76,11 @@ contract Token {
         int i = 0;
         int sumInputToken = 0;
         int paddingPos = 0;
-        require(nSenders <= 9);
+        require(nSenders <= 8);
         // if nSenders == 1, donot need to verify rabin message
         if (nSenders > 1) {
             // max support loop num input token
-            loop(9) {
+            loop(8) {
                 if (i < nSenders) {
                     // verify the rabin sig
                     bytes msg = rabinMsgArray[i * RabinUtil.TOKEN_RABIN_MSG_LEN: (i + 1) * RabinUtil.TOKEN_RABIN_MSG_LEN];
