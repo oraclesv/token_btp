@@ -76,11 +76,11 @@ contract Token {
         int i = 0;
         int sumInputToken = 0;
         int paddingPos = 0;
-        require(nSenders <= 3);
+        require(nSenders <= 20);
         // if nSenders == 1, donot need to verify rabin message
         if (nSenders > 1) {
             // max support loop num input token
-            loop(3) {
+            loop(20) {
                 if (i < nSenders) {
                     // verify the rabin sig
                     bytes msg = rabinMsgArray[i * RabinUtil.TOKEN_RABIN_MSG_LEN: (i + 1) * RabinUtil.TOKEN_RABIN_MSG_LEN];
@@ -116,8 +116,8 @@ contract Token {
         // max support loop num receiver, you can change this num, but will cause the contrac size increase. you can customize your output
         i = 0;
         int sumOutputToken = 0;
-        require(nReceivers <= 3);
-        loop(3) {
+        require(nReceivers <= 5);
+        loop(5) {
             if (i < nReceivers) {
                 bytes address = receiverArray[i * TokenProto.TOKEN_ADDRESS_LEN: (i + 1) * TokenProto.TOKEN_ADDRESS_LEN];
                 int tokenAmount = Util.fromLEUnsigned(receiverTokenAmountArray[i * TokenProto.TOKEN_VALUE_LEN: (i + 1) * TokenProto.TOKEN_VALUE_LEN]);

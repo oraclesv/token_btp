@@ -76,6 +76,9 @@ tokenID.write('testtokenid')
 let contractHash
 let tokenInstance = []
 
+const maxInputLimit = 20
+const maxOutputLimit = 5
+
 const decimalNum = Buffer.from('08', 'hex')
 
 function getTokenContractHash() {
@@ -395,6 +398,7 @@ describe('Test token contract unlock In Javascript', () => {
         verifyTokenContract(i, j, true, 0, 0)
       }
     }
+    verifyTokenContract(maxInputLimit, maxOutputLimit, true, 0, 0)
   });
 
   it('should succeed with bsv input', () => {
@@ -404,6 +408,7 @@ describe('Test token contract unlock In Javascript', () => {
         verifyTokenContract(i, j, true, 2, 1000)
       }
     }
+    verifyTokenContract(maxInputLimit, maxOutputLimit, true, 2, 1000)
   });
 
   it('it should succeed when using unlockFromContract', () => {
@@ -446,12 +451,12 @@ describe('Test token contract unlock In Javascript', () => {
     expect(result.success, result.error).to.be.false
   });
 
-  it('should failed because token input is greater than 3', () => {
-    verifyTokenContract(4, 1, false, 0, 0)
+  it('should failed because token input is greater than maxInputLimit', () => {
+    verifyTokenContract(maxInputLimit + 1, 1, false, 0, 0)
   });
 
-  it('should failed because token output is greater than 3', () => {
-    verifyTokenContract(1, 4, false, 0, 0)
+  it('should failed because token output is greater than maxOutputLimit', () => {
+    verifyTokenContract(1, maxOutputLimit + 1, false, 0, 0)
   });
 
   it('should failed because input output token amount donot match', () => {
