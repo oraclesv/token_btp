@@ -1,9 +1,10 @@
 {
-    "version": 1,
-    "compilerVersion": "0.3.0+commit.ba0d2c0",
+    "version": 2,
+    "compilerVersion": "0.3.1+commit.1c51603",
     "contract": "tokenGenesis",
     "md5": "291bea7ce9e1234df12b2e27a9a9468c",
     "structs": [],
+    "alias": [],
     "abi": [
         {
             "type": "function",
@@ -12,19 +13,23 @@
             "params": [
                 {
                     "name": "txPreimage",
-                    "type": "SigHashPreimage"
+                    "type": "SigHashPreimage",
+                    "finalType": "SigHashPreimage"
                 },
                 {
                     "name": "sig",
-                    "type": "Sig"
+                    "type": "Sig",
+                    "finalType": "Sig"
                 },
                 {
                     "name": "outputScript",
-                    "type": "bytes"
+                    "type": "bytes",
+                    "finalType": "bytes"
                 },
                 {
                     "name": "outputSatoshi",
-                    "type": "int"
+                    "type": "int",
+                    "finalType": "int"
                 }
             ]
         },
@@ -33,23 +38,28 @@
             "params": [
                 {
                     "name": "pubKey",
-                    "type": "PubKey"
+                    "type": "PubKey",
+                    "finalType": "PubKey"
                 },
                 {
                     "name": "tokenName",
-                    "type": "bytes"
+                    "type": "bytes",
+                    "finalType": "bytes"
                 },
                 {
                     "name": "tokenSymbol",
-                    "type": "bytes"
+                    "type": "bytes",
+                    "finalType": "bytes"
                 },
                 {
                     "name": "contractHash",
-                    "type": "bytes"
+                    "type": "bytes",
+                    "finalType": "bytes"
                 },
                 {
                     "name": "decimalNum",
-                    "type": "int"
+                    "type": "int",
+                    "finalType": "int"
                 }
             ]
         }
