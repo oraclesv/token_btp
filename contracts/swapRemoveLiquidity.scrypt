@@ -2,11 +2,11 @@ import "util.scrypt";
 import "swapUtil.scrypt";
 import "rabinUtil.scrypt";
 import "txUtil.scrypt";
-import "merkleTree.scrypt";
 
 contract SwapRemoveLiquidity {
     bytes swapContractID;
     bytes tokenID;
+    bytes lpTokenID;
     int[3] rabinPubKeyArray;
 
     public function unlock(
@@ -17,6 +17,11 @@ contract SwapRemoveLiquidity {
         bytes tokenRabinMsg,
         bytes[3] tokenPaddingArray,
         int[3] tokenSigArray,
+        int lpTokenInputIndex,
+        bytes lpTokenLockingScript,
+        bytes lpTokenRabinMsg,
+        bytes[3] lpTokenPaddingArray,
+        int[3] lpTokenSigArray,
         int swapInputIndex,
         bytes swapLockingScript, // swap input locking script
         bytes swapRabinMsg,
@@ -24,8 +29,6 @@ contract SwapRemoveLiquidity {
         int[3] swapSigArray,
         PubKey senderPubKey, 
         Sig senderSig, 
-        int removeLpAmount, 
-        int senderLpBalance, 
         bytes lpMerklePath,
         int changeSatoshis
     ) {
@@ -39,8 +42,6 @@ contract SwapRemoveLiquidity {
 
         Ripemd160 sender = ripemd160(sha256(senderPubKey));
 
-        require(removeLpAmount > 0);
-        require(senderLpBalance >= removeLpAmount);
         require(changeSatoshis >= 0);
 
         // verify swap contract
@@ -55,7 +56,6 @@ contract SwapRemoveLiquidity {
         require(swapVerifyCount >= 2);
 
         int scriptLen = len(swapLockingScript);
-        bytes lpMerkleRoot = SwapUtil.getLpMerkleRoot(swapLockingScript, scriptLen);
         int poolTokenAmount = SwapUtil.getTokenAmount(swapLockingScript, scriptLen);
         int totalLpAmount = SwapUtil.getLpAmount(swapLockingScript, scriptLen);
 
@@ -70,19 +70,23 @@ contract SwapRemoveLiquidity {
         int tokenInputSatoshis = RabinUtil.getMsgOutputSatoshis(tokenRabinMsg);
         int tokenInputAmount = RabinUtil.getMsgTokenAmount(tokenRabinMsg);
 
-        // change the lp amount and calculate new lp merkle tree
-        int newSenderLpBalance = senderLpBalance - removeLpAmount;
-        int newTotalLpAmount = totalLpAmount - removeLpAmount;
+        // verify lp token input
+        require(RabinUtil.checkOutputPoint(prevouts, lpTokenInputIndex, lpTokenRabinMsg));
+        require(hash160(lpTokenLockingScript) == RabinUtil.getMsgLockingScriptHash(lpTokenRabinMsg));
+        require(this.lpTokenID == RabinUtil.getMsgTokenID(lpTokenRabinMsg));
 
-        // calculate new lp merkle tree
-        bytes oldSenderLeaf = sha256(sender + num2bin(senderLpBalance, 8));
-        bytes newSenderLpLeaf = sha256(sender + num2bin(newSenderLpBalance, 8));
-        bytes newLpMerkleRoot = MerkleTree.updateLeaf(oldSenderLeaf, newSenderLpLeaf, lpMerklePath, lpMerkleRoot);
+        int lpTokenVerifyCount = RabinUtil.verifyMsgThree(this.rabinPubKeyArray, lpTokenRabinMsg, lpTokenPaddingArray, lpTokenSigArray);
+        require(lpTokenVerifyCount >= 2);
+
+        int lpTokenInputSatoshis = RabinUtil.getMsgOutputSatoshis(lpTokenRabinMsg);
+        int lpTokenInputAmount = RabinUtil.getMsgTokenAmount(lpTokenRabinMsg);
+
+        // change the lp amount and calculate new lp merkle tree
+        int newTotalLpAmount = totalLpAmount - lpTokenInputAmount;
 
         // change token amount and calculate new token amount
-        int bsvAdd = removeLpAmount * swapInputSatoshis / totalLpAmount;
-        int tokenAdd = removeLpAmount * poolTokenAmount / totalLpAmount;
-        //TODO: only support one token Input, need token merge
+        int bsvAdd = lpTokenInputAmount * swapInputSatoshis / totalLpAmount;
+        int tokenAdd = lpTokenInputAmount * poolTokenAmount / totalLpAmount;
         require(tokenAdd <= tokenInputAmount);
 
         int swapOutputSatoshis = swapInputSatoshis - bsvAdd;
@@ -91,7 +95,7 @@ contract SwapRemoveLiquidity {
         int newPoolTokenAmount = poolTokenAmount - tokenAdd;
 
         // swap contract output
-        bytes newSwapScript = SwapUtil.genNewSwapContract(swapLockingScript, newLpMerkleRoot, newPoolTokenAmount, newTotalLpAmount);
+        bytes newSwapScript = SwapUtil.genNewSwapContract(swapLockingScript, newPoolTokenAmount, newTotalLpAmount);
         bytes swapOutput = Util.buildOutput(newSwapScript, swapOutputSatoshis);
 
         // token output

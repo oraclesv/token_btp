@@ -1,0 +1,87 @@
+import "txUtil.scrypt";
+import "util.scrypt";
+import "tokenProto.scrypt";
+
+contract SwapLpGenesis {
+    bytes contractCodeHash;
+    bytes SwapAddLiquidityCodeHash;
+
+    public function unlock(
+        SigHashPreimage txPreimage,
+        int contractInputIndex,
+        bytes prevouts,
+        bytes prevScriptTx,
+        int prevScriptOutIndex,
+        bytes swapOutput,
+        bytes tokenOutput, 
+        int lpTokenOutputSatoshis,
+        bytes lpTokenOutputScript,
+        bytes changeOutput
+    ) {
+        require(Tx.checkPreimage(txPreimage));
+
+        // check prevouts
+        require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
+
+        // verify the prevScriptTx
+        bytes prevScriptTxId = prevouts[contractInputIndex * TxUtil.OUTPOINT_LEN: contractInputIndex * TxUtil.OUTPOINT_LEN + TxUtil.TX_ID_LEN];
+        require(hash256(prevScriptTx) == prevScriptTxId);
+
+        // check the script
+        bytes lockingScript = Util.scriptCode(txPreimage);
+        int scriptLen = len(lockingScript);
+
+        bytes prevScript = TxUtil.readOutputScript(prevScriptTx, prevScriptOutIndex);
+        bytes prevScriptCode = prevScript[: scriptLen - 20];
+
+        require(hash160(prevScriptCode) == this.SwapAddLiquidityCodeHash);
+
+        // check input script oracle data
+        bytes data = Util.scriptCode(txPreimage);
+        int dataLen = len(data);
+        bytes tokenName = TokenProto.getTokenName(data, dataLen);
+        bytes tokenSymbol = TokenProto.getTokenSymbol(data, dataLen);
+        int isGenesis = TokenProto.getGenesisFlag(data, dataLen);
+        require(isGenesis == 1);
+        int decimalNum = TokenProto.getDecimalNum(data, dataLen);
+        bytes address = TokenProto.getTokenAddress(data, dataLen);
+        require(address == b'0000000000000000000000000000000000000000');
+        int tokenValue = TokenProto.getTokenValue(data, dataLen);
+        require(tokenValue == 0);
+        bytes tokenID = TokenProto.getTokenID(data, dataLen);
+        require(tokenID == b'0000000000000000000000000000000000000000');
+        int protoType = TokenProto.getProtoType(data, dataLen);
+        require(protoType == TokenProto.PROTO_TYPE);
+        // flag == 'oraclesv'
+        bytes flag = TokenProto.getProtoFlag(data, dataLen);
+        require(flag == TokenProto.PROTO_FLAG);
+
+        bytes genesisHash = hash160(data);
+
+        bytes outputScript = lpTokenOutputScript;
+        // check outputScript oracle data
+        dataLen = len(outputScript);
+
+        // check hash
+        bytes contractCode = TokenProto.getContractCode(outputScript, dataLen);
+        bytes contractCodeHash = hash160(contractCode);
+        require(contractCodeHash == this.contractCodeHash);
+
+        require(tokenName == TokenProto.getTokenName(outputScript, dataLen));
+        require(tokenSymbol == TokenProto.getTokenSymbol(outputScript, dataLen));
+        isGenesis = TokenProto.getGenesisFlag(outputScript, dataLen);
+        require(isGenesis == 0);
+        require(decimalNum == TokenProto.getDecimalNum(outputScript, dataLen));
+        tokenID = TokenProto.getTokenID(outputScript, dataLen);
+        require(tokenID == genesisHash);
+        protoType = TokenProto.getProtoType(outputScript, dataLen);
+        require(protoType == TokenProto.PROTO_TYPE);
+        // flag == 'oraclesv'
+        flag = TokenProto.getProtoFlag(outputScript, dataLen);
+        require(flag == TokenProto.PROTO_FLAG);
+
+        bytes lpTokenOutput = Util.buildOutput(lpTokenOutputScript, lpTokenOutputSatoshis);
+        bytes outputs = swapOutput + tokenOutput + lpTokenOutput + changeOutput;
+        require(hash256(outputs) == Util.hashOutputs(txPreimage));
+    }
+}

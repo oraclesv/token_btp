@@ -13,11 +13,7 @@ library SwapUtil {
         return unpack(script[length - 16: length - 8] + b'00');
     }
 
-    static function getLpMerkleRoot(bytes script, int length): bytes {
-        return script[length - 36: length - 16];
-    }
-
-    static function genNewSwapContract(bytes script, bytes newMerkleRoot, int tokenAmount, int lpAmount): bytes {
-        return script[: SwapUtil.DATA_OFFSET] + newMerkleRoot + num2bin(tokenAmount, 8) + num2bin(lpAmount, 8);
+    static function genNewSwapContract(bytes script, int tokenAmount, int lpAmount): bytes {
+        return script[: SwapUtil.DATA_OFFSET] + num2bin(tokenAmount, 8) + num2bin(lpAmount, 8);
     }
 }

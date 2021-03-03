@@ -47,7 +47,6 @@ contract SwapTokenToBsv {
         require(swapVerifyCount >= 2);
 
         int scriptLen = len(swapLockingScript);
-        bytes lpMerkleRoot = SwapUtil.getLpMerkleRoot(swapLockingScript, scriptLen);
         int poolTokenAmount = SwapUtil.getTokenAmount(swapLockingScript, scriptLen);
         int totalLpAmount = SwapUtil.getLpAmount(swapLockingScript, scriptLen);
 
@@ -70,7 +69,7 @@ contract SwapTokenToBsv {
         int newPoolTokenAmount = poolTokenAmount + tokenInputAmount;
 
         // swap contract output
-        bytes newSwapScript = SwapUtil.genNewSwapContract(swapLockingScript, lpMerkleRoot, poolTokenAmount, totalLpAmount);
+        bytes newSwapScript = SwapUtil.genNewSwapContract(swapLockingScript, poolTokenAmount, totalLpAmount);
         bytes swapOutput = Util.buildOutput(newSwapScript, swapOutputSatoshis);
 
         // token output
