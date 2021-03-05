@@ -1,5 +1,6 @@
 import "util.scrypt";
 import "txUtil.scrypt";
+import "uniqueProto.scrypt";
 
 contract UniqueGenesis {
 
@@ -15,14 +16,15 @@ contract UniqueGenesis {
         require(hash256(prevouts) == Util.hashPrevouts(txPreimage));
 
         bytes uniqueID = prevouts[0: TxUtil.OUTPOINT_LEN];
+
+        int scriptLen = len(outputScript);
         
         // check the output script
-        require(uniqueID == UniqueProto.getUniqueID(outputScript));
-        require(UniqueProto.getGenesisFlag(outputScript) == 0);
-        require(UniqueProto.getProtoType(outputScript, dataLen) == UniqueProto.PROTO_TYPE);
+        require(uniqueID == UniqueProto.getUniqueID(outputScript, scriptLen));
+        require(UniqueProto.getGenesisFlag(outputScript, scriptLen) == 0);
+        require(UniqueProto.getProtoType(outputScript, scriptLen) == UniqueProto.PROTO_TYPE);
         // flag == 'oraclesv'
-        flag = UniqueProto.getProtoFlag(outputScript, dataLen);
-        require(flag == UniqueProto.Proto_FLAG);
+        require(UniqueProto.PROTO_FLAG == UniqueProto.getProtoFlag(outputScript, scriptLen));
 
         bytes output = Util.buildOutput(outputScript, outputSatoshis);
         require(hash256(output) == Util.hashOutputs(txPreimage));

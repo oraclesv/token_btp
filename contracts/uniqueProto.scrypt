@@ -10,21 +10,24 @@ library UniqueProto {
     static int UNIQUE_ID_LEN = 36;
     static int GENESIS_FLAG_LEN = 1;
     static int CUSTOM_DATA_SIZE_LEN = 4;
-    static int UNIQUE_ID_OFFSET = 0;/* fixme */
+
+    static int TYPE_OFFSET = UniqueProto.PROTO_TYPE_LEN + UniqueProto.PROTO_FLAG_LEN;
+    static int UNIQUE_ID_OFFSET = UniqueProto.TYPE_OFFSET + UniqueProto.UNIQUE_ID_LEN;
+    static int GENESIS_FLAG_OFFSET = UniqueProto.UNIQUE_ID_OFFSET + UniqueProto.GENESIS_FLAG_LEN;
 
     static function getUniqueID(bytes script, int slen): bytes {
         return script[slen - UniqueProto.UNIQUE_ID_OFFSET: slen - UniqueProto.UNIQUE_ID_OFFSET + UniqueProto.UNIQUE_ID_LEN];
     }
 
     static function getGenesisFlag(bytes script, int slen): int {
-        return 1;/* fixme */
+        return unpack(script[slen - UniqueProto.GENESIS_FLAG_OFFSET: slen - UniqueProto.GENESIS_FLAG_OFFSET + UniqueProto.GENESIS_FLAG_LEN] + b'00');
     }
 
     static function getProtoType(bytes script, int slen): int {
-        return 1;/* fixme */
+        return unpack(script[slen - UniqueProto.TYPE_OFFSET: slen - UniqueProto.TYPE_OFFSET + UniqueProto.PROTO_TYPE_LEN] + b'00');
     }
 
-    static function getProtoFlag(bytes script): bytes {
-        return script;/* fixme */
+    static function getProtoFlag(bytes script, int slen): bytes {
+        return script[slen - UniqueProto.PROTO_FLAG_LEN: slen];
     }
 }
